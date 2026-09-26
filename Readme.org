@@ -1,0 +1,131 @@
+* glasnost — a site that is made as it is read
+
+glasnost serves a folder of [[https://github.com/bjoli/samizdat][samizdat]] documents as a web site. Nothing is
+built beforehand: a page is made from its ~.sz~ the first time it is asked
+for, kept, and served as it was kept until something it was made from
+changes. A folder is a menu of what is in it, as Gopher had them.
+
+#+BEGIN_SRC text
+bjo build
+bjo run src/main.bjo SITE [--cache DIR] [--port N] [--host H]
+#+END_SRC
+
+It listens on 127.0.0.1:8080 unless told otherwise. Ctrl-C stops it.
+
+** A site
+
+A site is a folder, and a URL is a path in it:
+
+| ~/notes/cookies.html~ | the page made from ~notes/cookies.sz~              |
+| ~/notes/~             | the folder: its ~index.sz~, then its menu          |
+| ~/notes/index.html~   | the same                                           |
+| ~/notes~              | a redirect to ~/notes/~                            |
+| ~/notes/cat.png~      | the file, as it is, with a type by its extension   |
+
+A ~.sz~ file is never served as it is. A page wins over an ~.html~ file of
+the same name, and ~index.html~ is always the folder's.
+
+A name that begins with ~_~ or ~.~ is hidden: it is in no menu, and no URL
+reaches it. That is where the parts of pages go, drafts, and anything else
+that is not for reading on its own. ~_resources~ is the exception: its files
+are served, for a style sheet and the fonts and images it uses.
+
+** Pages
+
+A page is a samizdat document, with the standard commands. Its title and its
+date come from its ~(meta ...)~:
+
+#+BEGIN_SRC text
+(meta (title "Cookies, carefully")
+      (date 2026-09-26))
+
+Setting a cookie is one header...
+#+END_SRC
+
+A page without a title is called by its name, and one without a date is
+dated by when it was last written. A date may be written with quotes or
+without.
+
+~@include~ includes only hidden files: ~@include["_parts/footer.sz"]~, or
+~@include["_footer.sz"]~. A file that is not hidden would be a page of its
+own as well, and in its folder's menu.
+
+** Folders
+
+A folder's page is its ~index.sz~, when it has one, and then a menu: a line
+for each thing in the folder that is not hidden, with its title, a ~/~ after
+a folder's, and its date on the right. A page, and a folder by its
+~index.sz~, is called and dated by its ~(meta ...)~; what says nothing, and
+every other file, by its name and when it was last written.
+
+Folders come first, then the rest, newest first — or as the folder's
+~index.sz~ says:
+
+#+BEGIN_SRC text
+(meta (title "Notes") (sort title))       ; A to Z
+(meta (sort date ascending))              ; oldest first
+(meta (sort name descending))             ; Z to A
+#+END_SRC
+
+A date sorts only when it can be read as one. What has no value for the key
+comes last, by name.
+
+** How it looks
+
+A path at the top, each step a link; the title and the date; the page; the
+menu. The type is the browser's own: the style sheet sets colours, a column
+and some space, and nothing about fonts. It follows the reader's light or
+dark preference. There is no JavaScript.
+
+~_resources/glasnost.css~, when there is one, comes after the built-in style
+sheet and may change anything — a font included.
+
+** The cache
+
+Pages are kept in ~DIR/<fingerprint>~, ~SITE/_cache~ unless ~--cache~ says
+otherwise. The fingerprint is a hash of the code that makes the pages — the
+program, samizdat, Markdig, glasnost itself — so a glasnost built from other
+code keeps its pages somewhere else, and never serves a page the old code
+made. The caches of older code are removed when glasnost starts; a folder
+there that is not named as a cache is left alone.
+
+Beside each kept page is the list of what it was made from: its ~.sz~, and
+everything that included; for a folder, the folder itself and everything its
+menu says something about; and the site's ~index.sz~ and style sheet, which
+every page shows something of. The page is made again when one of them has
+been written since it was made, or is gone. A page is written beside where it
+goes and moved there, so that a reader never gets half of one.
+
+A page that cannot be made is answered 500, with what samizdat said — the
+file, the line, the command — and is not kept.
+
+** The modules
+
+| ~(glasnost site)~        | URLs, the cache, making pages; the ~@include~ a site has |
+| ~(glasnost index)~       | what a folder's menu lists, and in what order          |
+| ~(glasnost layout)~      | the page around it all, and its style sheet            |
+| ~(glasnost server)~      | a bjoweb router for a site                             |
+| ~(glasnost fingerprint)~ | the hash of the code                                   |
+
+~make-site~ takes ~#:commands~, merged over samizdat's, for a site that wants
+commands of its own.
+
+** Tests
+
+#+BEGIN_SRC text
+bjo run tests/site.bjo
+#+END_SRC
+
+The site in ~tests/site~ is copied to ~tests/cache/~ and changed there: URLs,
+pages, menus, the include rule, the cache, and the server over HTTP.
+
+** What it needs
+
+[[https://github.com/bjoli/bjoweb][bjoweb]] 0.3.0 or later, and samizdat 0.3.0, which says what files a document
+was made from. Until that is published, samizdat is found at ~../samizdat~.
+samizdat's Markdown comes from Markdig, through NuGet, so building needs the
+~dotnet~ SDK.
+
+** License
+
+MPL-2.0.

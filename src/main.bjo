@@ -1,0 +1,92 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/src/main.bjo — the program.
+;;
+;;     glasnost SITE [--cache DIR] [--port N] [--host H]
+;;
+;; Serves the folder SITE until it is stopped with Ctrl-C. Pages are kept in
+;; DIR/<fingerprint>, SITE/_cache unless DIR is given; the caches older code
+;; made there are removed first.
+
+(import (std prelude))
+(import (only (bjoweb server) serve))
+(import (glasnost site))
+(import (glasnost server))
+
+(: usage string)
+(def usage "usage: glasnost SITE [--cache DIR] [--port N] [--host H]")
+
+(type (: Options (Record (: root string)
+                         (: cache string)
+                         (: port int)
+                         (: host string))))
+
+(: parse-port (-> string (Option int)))
+(defun (parse-port s)
+  (match (try (string->int s) #:catch (System.Exception))
+    ((Ok n) (if (and (> n 0) (< n 65536)) (Some n) None))
+    ((Err e) None)))
+
+(: parse-options (-> (Vec string) (Result string Options)))
+(defun (parse-options args)
+  (let go ((left (vec->list args)) (root "") (cache "") (port 8080) (host "127.0.0.1"))
+    (match left
+      (Nil
+       (if (string-empty? root)
+           (Err "glasnost: which folder is the site?")
+           (Ok (Options (root root) (cache cache) (port port) (host host)))))
+      ((Cons a more)
+       (case a
+         ("--cache"
+          (match more
+            ((Cons dir rest) (go rest root dir port host))
+            (Nil (Err "glasnost: --cache needs a folder"))))
+         ("--port"
+          (match more
+            ((Cons n rest)
+             (match (parse-port n)
+               ((Some p) (go rest root cache p host))
+               (None (Err (str "glasnost: --port " n " is not a port")))))
+            (Nil (Err "glasnost: --port needs a number"))))
+         ("--host"
+          (match more
+            ((Cons h rest) (go rest root cache port h))
+            (Nil (Err "glasnost: --host needs an address"))))
+         (("-h" "--help") (Err "glasnost: a site that is made as it is read"))
+         (else
+          (cond
+            ((string-starts-with? a "-") (Err (str "glasnost: there is no option " a)))
+            ((not (string-empty? root)) (Err "glasnost: one site at a time"))
+            (else (go more a cache port host)))))))))
+
+;; The site, and the old caches beside its own, which are removed.
+(: open-site #:sync (-> Options (Tuple Site (Vec string))))
+(defun (open-site o)
+  (def site (make-site (record-ref o root) #:cache (record-ref o cache)))
+  (Tuple site (clear-old-caches! site)))
+
+(defbjo (main args)
+  (match (parse-options args)
+    ((Err why)
+     (println why)
+     (println usage)
+     2)
+    ((Ok o)
+     (if (not (directory-exists? (record-ref o root)))
+         (begin
+           (println (str "glasnost: there is no folder " (record-ref o root)))
+           1)
+         (match (sync (blocking (fun () (open-site o))))
+           ((Err e)
+            (println (str "glasnost: " (.-Message e)))
+            1)
+           ((Ok (Tuple site removed))
+            (loop (:for dir removed)
+                  (:do (println (str "glasnost: removed the old cache " dir))))
+            (println (str "glasnost: serving " (site-root site)
+                          " at http://" (record-ref o host) ":" (int->string (record-ref o port)) "/"))
+            (println (str "glasnost: pages are kept in " (site-cache site)))
+            (serve (site-router site) #:port (record-ref o port) #:host (record-ref o host))
+            0))))))

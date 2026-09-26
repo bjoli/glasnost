@@ -1,0 +1,68 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/src/server.bjo — the module (glasnost server).
+;;
+;; A site over HTTP: a bjoweb router that answers GET, and HEAD, for every
+;; path, with what `(glasnost site)` makes of it.
+;;
+;;     a page or a folder    200, the page: kept, or made now
+;;     a folder's name       302 to the same with a slash
+;;     a file                200, as it is, with a type by its extension
+;;     nothing               404, a page that says so
+;;     a page that cannot    500, a page that says why: the file, the line,
+;;       be made                 the command
+;;
+;; Files are served here rather than by Kestrel's static files, which would
+;; serve a hidden folder's files too, and not a file whose type it does not
+;; know — a `.bjo` in a menu would be a link to nothing.
+;;
+;; The site's work reads and writes files, and is done off the fibers, with
+;; `(sync (blocking ...))`.
+
+(export site-router)
+
+(import (std prelude))
+(import (bjoweb core))
+(import (bjoweb router))
+(import (only (samizdat html) escape-html))
+(import (glasnost site))
+(import (glasnost layout))
+
+(import/extern
+  (read-bytes (: System.IO.File.ReadAllBytes (-> string (Array byte)))))
+
+;; The answer to a GET for `path`.
+(: answer #:sync (-> Site string Response))
+(defun (answer site path)
+  (match (resolve site path)
+    (Missing (html (message-page site "Not found" (str path " is not here.")) #:status 404))
+    ((Redirect to) (redirect to))
+    ((Asset file) (binary (read-bytes file) #:content-type (asset-type file)))
+    (target
+     (match (target-html site target)
+       ((Ok page) (html page))
+       ((Err why) (html (message-page site "This page could not be made" why) #:status 500))))))
+
+;; What is said when the work itself raised: a file that could not be read or
+;; written. It reads nothing from the site, which may be what failed.
+(: failure-page (-> string string))
+(defun (failure-page why)
+  (page-layout #:title "Something went wrong"
+               #:content (str "<p class=\"error\">" (escape-html why) "</p>")))
+
+(: answer-request (-bjo-> Site Request Response))
+(defbjo (answer-request site req)
+  (def path (request-path req))
+  (match (sync (blocking (fun () (answer site path))))
+    ((Ok response) response)
+    ((Err e) (html (failure-page (.-Message e)) #:status 500))))
+
+;; The routes for `site`: every path, by GET, which HEAD is too. Any other
+;; method is answered 405.
+(: site-router (-> Site Router))
+(defun (site-router site)
+  (def handler (bjoroutine (req) (answer-request site req)))
+  (router (route-get "/" handler)
+          (route-get "/*path" handler)))

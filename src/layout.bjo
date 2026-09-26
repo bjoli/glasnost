@@ -1,0 +1,109 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/src/layout.bjo — the module (glasnost layout).
+;;
+;; What every page looks like: Gopher's, in HTML. A line with the path to the
+;; page, each step of it a link; the title, and the date; what the page says;
+;; and for a folder the menu of what is in it, one line to an entry.
+;;
+;; The type is the browser's own. The style sheet here sets colours, a
+;; column and some space, and nothing about fonts, so that what a reader has
+;; chosen for their browser is what they read in. It follows the reader's
+;; light or dark preference. A site's `_resources/glasnost.css` comes after
+;; it, and may change anything, a font included.
+;;
+;; There is no JavaScript.
+
+(export Crumb page-layout builtin-css)
+
+(import (std prelude))
+(import (only (samizdat html) escape-html escape-attribute))
+
+;; One step of the path line: what it says, and where it goes — "" for the
+;; last one, which is the page itself and not a link.
+(type (: Crumb (Alias (Tuple string string))))
+
+(: builtin-css string)
+(def builtin-css
+  (string-join
+   [":root {"
+    "  color-scheme: light dark;"
+    "  --fg: #1d1d1b; --bg: #fbfbf8; --muted: #6e6e68; --rule: #dcdcd4;"
+    "  --link: #0b57a4; --visited: #6a3d9a; --code: #f0f0ea;"
+    "}"
+    "@media (prefers-color-scheme: dark) {"
+    "  :root {"
+    "    --fg: #e2e2dc; --bg: #161616; --muted: #9c9c94; --rule: #34342f;"
+    "    --link: #86b8ee; --visited: #bca4e0; --code: #222220;"
+    "  }"
+    "}"
+    "html { background: var(--bg); color: var(--fg); }"
+    "body { max-width: 44rem; margin: 0 auto; padding: 1.25rem 1rem 4rem; line-height: 1.5; }"
+    "a { color: var(--link); }"
+    "a:visited { color: var(--visited); }"
+    "nav.path { color: var(--muted); padding-bottom: .5rem; border-bottom: 1px solid var(--rule); }"
+    "nav.path a { text-decoration: none; }"
+    "nav.path a:hover { text-decoration: underline; }"
+    "header { margin: 1.5rem 0; }"
+    "header h1 { margin: 0; }"
+    "header p.date { margin: .25rem 0 0; color: var(--muted); }"
+    "main + .menu { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--rule); }"
+    ".menu p { display: flex; align-items: baseline; margin: 0; padding: .15rem 0; }"
+    ".menu p:hover { background: var(--code); }"
+    ".menu .marker { color: var(--muted); }"
+    ".menu .date { margin-left: auto; padding-left: 1rem; color: var(--muted); white-space: nowrap; }"
+    "pre { overflow-x: auto; padding: .75rem 1rem; background: var(--code); }"
+    "img { max-width: 100%; height: auto; }"
+    "blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid var(--rule); }"
+    "table { border-collapse: collapse; }"
+    "th, td { padding: .25rem .6rem; border-bottom: 1px solid var(--rule); }"
+    "hr { border: 0; border-top: 1px solid var(--rule); }"
+    "section.notes { margin-top: 2rem; border-top: 1px solid var(--rule); }"
+    "p.error { white-space: pre-wrap; }"]
+   "\n"))
+
+;; The path line: each step a link but the last, with a slash between.
+(: path-line (-> (Vec Crumb) string))
+(defun (path-line crumbs)
+  (str "<nav class=\"path\">"
+       (string-join (loop (:for c crumbs)
+                          (:acc (vecing (match c
+                                          ((Tuple text href)
+                                           (if (string-empty? href)
+                                               (str "<span>" (escape-html text) "</span>")
+                                               (str "<a href=\"" (escape-attribute href) "\">"
+                                                    (escape-html text) "</a>")))))))
+                    " / ")
+       "</nav>"))
+
+;; A whole page. `#:content` and `#:menu` are HTML already; either may be "".
+;; `#:stylesheet` is where the site's own style sheet is, "" when it has none.
+(: page-layout (-> (#:title string) (#:date string) (#:crumbs (Vec Crumb))
+                   (#:content string) (#:menu string) (#:stylesheet string)
+                   string))
+(defun (page-layout #:title "" #:date "" #:crumbs (vec-empty)
+                    #:content "" #:menu "" #:stylesheet "")
+  (str "<!DOCTYPE html>\n"
+       "<html>\n"
+       "<head>\n"
+       "<meta charset=\"utf-8\">\n"
+       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+       "<meta name=\"color-scheme\" content=\"light dark\">\n"
+       "<title>" (escape-html title) "</title>\n"
+       "<style>\n" builtin-css "\n</style>\n"
+       (if (string-empty? stylesheet)
+           ""
+           (str "<link rel=\"stylesheet\" href=\"" (escape-attribute stylesheet) "\">\n"))
+       "</head>\n"
+       "<body>\n"
+       (if (vec-empty? crumbs) "" (str (path-line crumbs) "\n"))
+       "<header>\n"
+       "<h1>" (escape-html title) "</h1>\n"
+       (if (string-empty? date) "" (str "<p class=\"date\"><time>" (escape-html date) "</time></p>\n"))
+       "</header>\n"
+       (if (string-empty? content) "" (str "<main>\n" content "\n</main>\n"))
+       (if (string-empty? menu) "" (str menu "\n"))
+       "</body>\n"
+       "</html>\n"))

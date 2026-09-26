@@ -1,0 +1,326 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/src/index.bjo — the module (glasnost index).
+;;
+;; What a folder's menu lists, and in what order.
+;;
+;; An entry is a folder, a page or some other file in it; one whose name
+;; begins with `_` or `.` is hidden, and not listed. A page is a `.sz` file,
+;; `index.sz` aside, which is the folder's own. A page and a folder are
+;; called what their (meta ...) says — the folder's is its `index.sz`'s — and
+;; dated by it:
+;;
+;;     (meta (title "Cookies, and what they keep") (date 2026-09-26))
+;;
+;; What says nothing, and every other file, is called by its name and dated
+;; by when it was last written.
+;;
+;; Folders come first, then the rest, newest first — or as the folder's
+;; `index.sz` says:
+;;
+;;     (meta (sort title))              A to Z
+;;     (meta (sort date ascending))     oldest first
+;;     (meta (sort name descending))    Z to A
+;;
+;; A date sorts by a key only when it can be read as one; an entry without
+;; the key goes after those with it, by name.
+
+(export
+  MenuEntry Sorting
+  ;; The folder, and its (meta ...).
+  folder-entries sorting-of sort-entries menu-blocks
+  ;; What a document is called, and when it is from.
+  read-meta describe meta-date
+  ;; Names and times.
+  hidden-name? page-stem last-written)
+
+(import (std prelude))
+(import (only (std mutable vec) vec->mutablevec mutablevec->vec mutablevec-sort-by!))
+(import (text bjodat-core))
+(import (samizdat read))
+(import (samizdat doc))
+
+(import/class
+  (DateTime (: System.DateTime))
+  (FormatProvider (: System.IFormatProvider))
+  (CultureInfo (: System.Globalization.CultureInfo)))
+
+(import/extern
+  (invariant-culture (: System.Globalization.CultureInfo.InvariantCulture (-> CultureInfo) #:get))
+  (clr-parse-date (: System.DateTime.Parse (-> string FormatProvider DateTime)))
+  (file-written-utc (: System.IO.File.GetLastWriteTimeUtc (-> string DateTime)))
+  (directory-written-utc (: System.IO.Directory.GetLastWriteTimeUtc (-> string DateTime)))
+  (name-of-path (: System.IO.Path.GetFileName (-> string string)))
+  (name-without-extension (: System.IO.Path.GetFileNameWithoutExtension (-> string string)))
+  (uri-escape (: System.Uri.EscapeDataString (-> string string))))
+
+;; ---------------------------------------------------------------------------
+;; Names and times
+;; ---------------------------------------------------------------------------
+
+(: hidden-name? (-> string bool))
+(defun (hidden-name? name)
+  (or (string-starts-with? name "_") (string-starts-with? name ".")))
+
+;; A page's name: "cookies" for cookies.sz.
+(: page-stem (-> string string))
+(defun (page-stem name) (name-without-extension name))
+
+;; When a file or a folder was last written, in UTC.
+(: last-written (-> string DateTime))
+(defun (last-written path)
+  (if (directory-exists? path) (directory-written-utc path) (file-written-utc path)))
+
+(: two-digits (-> int string))
+(defun (two-digits n) (string-pad-left (int->string n) 2 #:with #\0))
+
+;; 2026-09-26.
+(: day-text (-> DateTime string))
+(defun (day-text d)
+  (str (int->string (.-Year d)) "-" (two-digits (.-Month d)) "-" (two-digits (.-Day d))))
+
+;; 2026-09-26T14:30:00, which sorts as the time does.
+(: sortable-text (-> DateTime string))
+(defun (sortable-text d)
+  (str (day-text d) "T" (two-digits (.-Hour d)) ":" (two-digits (.-Minute d))
+       ":" (two-digits (.-Second d))))
+
+(: parse-date-text (-> string (Option DateTime)))
+(defun (parse-date-text s)
+  (match (try (clr-parse-date s (cast FormatProvider invariant-culture))
+              #:catch (System.FormatException))
+    ((Ok d) (Some d))
+    ((Err e) None)))
+
+;; ---------------------------------------------------------------------------
+;; What a document says about itself
+;; ---------------------------------------------------------------------------
+
+;; The (meta ...) of the document at `path`, read without running any of its
+;; commands, as a document with nothing else in it: `None` when it has no
+;; (meta ...), or cannot be read.
+(: read-meta #:sync (-> string (Option Document)))
+(defun (read-meta path)
+  (match (try (read-source-file path) #:catch (System.Exception))
+    ((Ok (Ok src))
+     (match (record-ref src meta)
+       ((Some m) (Some (Document (meta (Some m)) (blocks (vec-empty)) (notes (vec-empty))
+                                 (sources (vec-empty)))))
+       (None None)))
+    (_ None)))
+
+;; `(date "2026-09-26")`, or `(date 2026-09-26)`, which bjodat reads as the
+;; numbers 2026, -9 and -26, and which is put back together here.
+(: meta-date (-> Document (Option string)))
+(defun (meta-date doc)
+  (match (meta-values doc "date")
+    ((Some (Cons (BjoStr s) Nil)) (Some s))
+    ((Some (Cons (BjoSym s) Nil)) (Some (symbol->string s)))
+    ((Some (Cons (BjoInt year) rest)) (joined-date year rest))
+    (_ None)))
+
+(: joined-date (-> long (List Bjodat) (Option string)))
+(defun (joined-date year rest)
+  (loop (:for v rest)
+        (:acc text (folding (Some (long->string year))
+                            (match (Tuple text v)
+                              ((Tuple (Some before) (BjoInt n))
+                               (if (< n 0L)
+                                   (Some (str before "-" (string-pad-left (long->string (- 0L n)) 2 #:with #\0)))
+                                   None))
+                              (_ None))))))
+
+;; What a menu line, or a page's header, says about a document: its title,
+;; and its date as it is shown and as it sorts. They come from its (meta ...),
+;; and otherwise are `name` and the day it was `written`. A date that cannot
+;; be read as one is shown as it is written, and sorts as "".
+(: describe (-> (Option Document) string DateTime (Tuple string string string)))
+(defun (describe doc name written)
+  (def title (match doc
+               ((Some d) (match (meta-string d "title")
+                           ((Some t) (if (string-empty? (string-trim t)) name t))
+                           (None name)))
+               (None name)))
+  (def given (match doc
+               ((Some d) (meta-date d))
+               (None None)))
+  (match given
+    ((Some text)
+     (Tuple title text (match (parse-date-text text)
+                         ((Some d) (sortable-text d))
+                         (None ""))))
+    (None
+     (def local (.ToLocalTime written))
+     (Tuple title (day-text local) (sortable-text local)))))
+
+;; ---------------------------------------------------------------------------
+;; The entries
+;; ---------------------------------------------------------------------------
+
+;; `name` is what it is sorted by: a page's without its `.sz`. `href` is
+;; relative to the folder. `sortable` is the date as it sorts, "" when there
+;; is none. `sources` are what the entry is read from, for a menu that has
+;; to be made again when one of them changes.
+(type (: MenuEntry (Record (: name string)
+                           (: href string)
+                           (: folder bool)
+                           (: title string)
+                           (: date string)
+                           (: sortable string)
+                           (: sources (Vec string)))))
+
+(: folder-entry (-> string string MenuEntry))
+(defun (folder-entry dir name)
+  (def index (path-combine dir "index.sz"))
+  (def indexed (file-exists? index))
+  (match (describe (if indexed (read-meta index) None) name (last-written dir))
+    ((Tuple title date sortable)
+     (MenuEntry (name name) (href (str (uri-escape name) "/")) (folder #t)
+                (title title) (date date) (sortable sortable)
+                (sources (if indexed [dir index] [dir]))))))
+
+(: file-entry (-> string string MenuEntry))
+(defun (file-entry path name)
+  (def page (string-ends-with? name ".sz"))
+  (def shown (if page (page-stem name) name))
+  (match (describe (if page (read-meta path) None) shown (last-written path))
+    ((Tuple title date sortable)
+     (MenuEntry (name shown)
+                (href (if page (str (uri-escape shown) ".html") (uri-escape name)))
+                (folder #f) (title title) (date date) (sortable sortable)
+                (sources [path])))))
+
+;; x.html beside an x.sz, whose page has its name.
+(: shadowed? (-> string string bool))
+(defun (shadowed? dir name)
+  (and (string-ends-with? name ".html")
+       (file-exists? (path-combine dir (str (page-stem name) ".sz")))))
+
+;; What is in the folder at `dir`, hidden things aside, in no order.
+(: folder-entries #:sync (-> string (Vec MenuEntry)))
+(defun (folder-entries dir)
+  (vec-merge
+   (loop (:for sub (directory-subdirectories dir))
+         (:let name (name-of-path sub))
+         (:when (not (hidden-name? name)))
+         (:acc (vecing (folder-entry sub name))))
+   (loop (:for file (directory-files dir))
+         (:let name (name-of-path file))
+         (:when (not (or (hidden-name? name) (= name "index.sz") (= name "index.html")
+                         (shadowed? dir name))))
+         (:acc (vecing (file-entry file name))))))
+
+;; ---------------------------------------------------------------------------
+;; The order
+;; ---------------------------------------------------------------------------
+
+(type (: SortKey (Union ByDate ByTitle ByName)))
+
+;; What the (sort ...) of a folder's index.sz asks for. Opaque: `sorting-of`
+;; makes one, and `sort-entries` uses it.
+(type (: Sorting #:opaque (Record (: key SortKey)
+                                  (: descending bool))))
+
+(: newest-first Sorting)
+(def newest-first (Sorting (key ByDate) (descending #t)))
+
+(: word-of (-> Bjodat string))
+(defun (word-of v)
+  (match v
+    ((BjoSym s) (symbol->string s))
+    ((BjoStr s) s)
+    (_ (bjodat->string v))))
+
+;; A key, and an order when one is given: a date is newest first unless it
+;; says otherwise, and a title or a name A to Z.
+(: sorting-from (-> string (Option string) (Result string Sorting)))
+(defun (sorting-from key order)
+  (def k (cond
+           ((= key "date") (Some ByDate))
+           ((= key "title") (Some ByTitle))
+           ((= key "name") (Some ByName))
+           (else None)))
+  (match k
+    (None (Err (str "(sort " key " ...): the key is date, title or name")))
+    ((Some sk)
+     (match order
+       (None (Ok (Sorting (key sk) (descending (= key "date")))))
+       ((Some word)
+        (case word
+          ("ascending" (Ok (Sorting (key sk) (descending #f))))
+          ("descending" (Ok (Sorting (key sk) (descending #t))))
+          (else (Err (str "(sort " key " " word "): the order is ascending or descending")))))))))
+
+;; The order the (sort ...) of a folder's index.sz asks for, newest first
+;; when it has none.
+(: sorting-of (-> (Option Document) (Result string Sorting)))
+(defun (sorting-of doc)
+  (match doc
+    (None (Ok newest-first))
+    ((Some d)
+     (match (meta-values d "sort")
+       (None (Ok newest-first))
+       ((Some (Cons key Nil)) (sorting-from (word-of key) None))
+       ((Some (Cons key (Cons order Nil))) (sorting-from (word-of key) (Some (word-of order))))
+       ((Some other) (Err "(sort ...) is a key — date, title or name — and perhaps ascending or descending"))))))
+
+(: compare-names (-> MenuEntry MenuEntry int))
+(defun (compare-names a b)
+  (def folded (compare (string-downcase (record-ref a name)) (string-downcase (record-ref b name))))
+  (if (= folded 0) (compare (record-ref a name) (record-ref b name)) folded))
+
+(: compare-by-key (-> Sorting MenuEntry MenuEntry int))
+(defun (compare-by-key sorting a b)
+  (def turn (fun (n) (if (record-ref sorting descending) (- 0 n) n)))
+  (match (record-ref sorting key)
+    (ByName (turn (compare-names a b)))
+    (ByTitle (turn (compare (string-downcase (record-ref a title))
+                            (string-downcase (record-ref b title)))))
+    (ByDate
+     (def da (record-ref a sortable))
+     (def db (record-ref b sortable))
+     (cond
+       ((and (string-empty? da) (string-empty? db)) 0)
+       ((string-empty? da) 1)
+       ((string-empty? db) (- 0 1))
+       (else (turn (compare da db)))))))
+
+;; Folders first; then by the key; then by name, A to Z.
+(: compare-entries (-> Sorting MenuEntry MenuEntry int))
+(defun (compare-entries sorting a b)
+  (def fa (record-ref a folder))
+  (def fb (record-ref b folder))
+  (cond
+    ((and fa (not fb)) (- 0 1))
+    ((and fb (not fa)) 1)
+    (else
+     (def by-key (compare-by-key sorting a b))
+     (if (= by-key 0) (compare-names a b) by-key))))
+
+(: sort-entries (-> Sorting (Vec MenuEntry) (Vec MenuEntry)))
+(defun (sort-entries sorting entries)
+  (def sorted (vec->mutablevec entries))
+  (mutablevec-sort-by! sorted (fun (a b) (compare-entries sorting a b)))
+  (mutablevec->vec sorted))
+
+;; ---------------------------------------------------------------------------
+;; The menu
+;; ---------------------------------------------------------------------------
+
+;; One line: the link, a slash after a folder's, and the date.
+(: menu-line (-> MenuEntry Block))
+(defun (menu-line e)
+  (def link (Link (record-ref e href) [(Str (record-ref e title))]))
+  (def marked (if (record-ref e folder) [link (Span "marker" [(Str "/")])] [link]))
+  (def date (record-ref e date))
+  (Para (if (string-empty? date) marked (vec-add marked (Span "date" [(Str date)])))))
+
+;; The menu, as a div of class "menu" with a paragraph to an entry; nothing
+;; for an empty folder.
+(: menu-blocks (-> (Vec MenuEntry) (Vec Block)))
+(defun (menu-blocks entries)
+  (if (vec-empty? entries)
+      (vec-empty)
+      [(Div "menu" (vec-map menu-line entries))]))

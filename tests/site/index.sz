@@ -1,0 +1,5 @@
+(meta (title "Glasnost test"))
+
+The front page of a site made for the tests.
+
+@include["_parts/greeting.sz"]

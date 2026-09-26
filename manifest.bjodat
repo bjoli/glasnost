@@ -1,0 +1,17 @@
+(package
+  (name (glasnost))
+  (version "0.1.0")
+  (description "A site that is made as it is read: samizdat pages, generated when asked for and kept until their sources change; folders as menus, as Gopher had them.")
+  (license "MPL-2.0")
+
+  (depends
+    (package (name (bjoweb))
+             (version (version-at-least "0.3.0"))
+             (source (git (url "https://github.com/bjoli/bjoweb"))))
+    ;; 0.3.0, which says what files a document was made from, is not
+    ;; published yet.
+    (package (name (samizdat))
+             (source (path (dir "../samizdat")))))
+
+  ;; A program: src/main.bjo.
+  )

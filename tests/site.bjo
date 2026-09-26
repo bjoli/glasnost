@@ -1,0 +1,311 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/tests/site.bjo — URLs, pages, menus and the cache.
+;;
+;;     bjo run tests/site.bjo
+;;
+;; The site in tests/site is copied to tests/cache/site first, and its pages
+;; kept in tests/cache/pages, so that changing a file to see a page made again
+;; changes nothing in the repository.
+
+(import (std prelude))
+(import (std simpletest))
+(import (prefix-types (rename (std http)
+                              (response-status http-status)
+                              (response-header http-header)
+                              (response-text http-text))
+                      "http/"))
+(import (only (bjoweb server) start-server stop-server!))
+(import (glasnost site))
+(import (glasnost server))
+
+(import/class
+  (DateTime (: System.DateTime))
+  (PortProbe (: System.Net.Sockets.TcpListener (-> Address int PortProbe)))
+  (Address (: System.Net.IPAddress))
+  (Endpoint (: System.Net.EndPoint))
+  (Object (: System.Object)))
+
+(import/extern
+  (loopback (: System.Net.IPAddress.Loopback Address #:get))
+  (start-probe (: System.Net.Sockets.TcpListener.Start (-> PortProbe void)))
+  (stop-probe (: System.Net.Sockets.TcpListener.Stop (-> PortProbe void)))
+  (bound-to (: System.Net.Sockets.TcpListener.LocalEndpoint (-> PortProbe Endpoint) #:get))
+  (ip-port (: System.Net.IPEndPoint.Port (-> System.Net.IPEndPoint int) #:get))
+  (copy-file! (: System.IO.File.Copy (-> string string bool void)))
+  (written-utc (: System.IO.File.GetLastWriteTimeUtc (-> string DateTime)))
+  (relative-to (: System.IO.Path.GetRelativePath (-> string string string)))
+  (name-in-folder (: System.IO.Path.GetFileName (-> string string))))
+
+(: copy-tree! (-> string string void))
+(defun (copy-tree! from to)
+  (directory-create to)
+  (loop (:for f (directory-files from))
+        (:do (copy-file! f (path-combine to (name-in-folder f)) #t)))
+  (loop (:for d (directory-subdirectories from))
+        (:do (copy-tree! d (path-combine to (name-in-folder d))))))
+
+(: work string)
+(def work (path-absolute "tests/cache"))
+
+(: root string)
+(def root (path-combine work "site"))
+
+;; A target, its paths relative to the site and to the cache.
+(: shown (-> Site Target string))
+(defun (shown site t)
+  (match t
+    ((Page sz kept parts)
+     (str "page " (relative-to root sz) " " (relative-to (site-cache site) kept)))
+    ((Folder dir kept parts)
+     (str "folder " (relative-to root dir) " " (relative-to (site-cache site) kept)))
+    ((Asset path) (str "asset " (relative-to root path)))
+    ((Redirect to) (str "redirect " to))
+    (Missing "missing")))
+
+(: html-at (-> Site string string))
+(defun (html-at site path)
+  (match (target-html site (resolve site path))
+    ((Ok html) html)
+    ((Err e) (str "error: " e))))
+
+(: kept-at (-> Site string string))
+(defun (kept-at site path)
+  (match (resolve site path)
+    ((Page sz kept parts) kept)
+    ((Folder dir kept parts) kept)
+    (_ "")))
+
+(: position (-> string string int))
+(defun (position html text) (.IndexOf html text))
+
+;; Whether the texts come in `html` in this order, every one of them.
+(: in-order? (-> string (Vec string) bool))
+(defun (in-order? html texts)
+  (>= (loop (:for t texts)
+            (:acc at (folding 0 (let ((p (position html t)))
+                                  (if (or (< at 0) (< p at)) (- 0 1) p)))))
+      0))
+
+(: rewrite! (-> string string void))
+(defun (rewrite! rel text) (file-write-text (path-combine root rel) text))
+
+;; Everything here reads and writes files, and parks the thread it is on while
+;; it does; `main` runs it on a thread of its own.
+(: check-site #:sync (-> int))
+(defun (check-site)
+  (when (directory-exists? work) (directory-delete-tree work))
+  (copy-tree! (path-absolute "tests/site") root)
+  (def site (make-site root #:cache (path-combine work "pages")))
+  (def at (fun (path) (shown site (resolve site path))))
+
+  ;; --- URLs ---------------------------------------------------------------
+  (expect "the site's own folder" (at "/") "folder . index.html")
+  (expect "its index.html is the folder" (at "/index.html") "folder . index.html")
+  (expect "a page" (at "/about.html") "page about.sz about.html")
+  (expect "a page two folders down" (at "/sub/deep/page.html")
+          "page sub/deep/page.sz sub/deep/page.html")
+  (expect "a folder" (at "/posts/") "folder posts posts/index.html")
+  (expect "a folder's index.html" (at "/posts/index.html") "folder posts posts/index.html")
+  (expect "a folder without its slash is sent to it" (at "/posts") "redirect /posts/")
+  (expect "a file as it is" (at "/notes.txt") "asset notes.txt")
+  (expect "an .html file with no page of its name" (at "/static.html") "asset static.html")
+  (expect "a .sz file is not served" (at "/about.sz") "missing")
+  (expect "a hidden page" (at "/_hidden.html") "missing")
+  (expect "a page in a hidden folder" (at "/_drafts/secret.html") "missing")
+  (expect "a partial" (at "/_parts/greeting.html") "missing")
+  (expect "a dot file" (at "/.dotfile") "missing")
+  (expect "the cache" (at "/_cache/") "missing")
+  (expect "_resources is served" (at "/_resources/glasnost.css") "asset _resources/glasnost.css")
+  (expect "but has no menu" (at "/_resources/") "missing")
+  (expect ".. leaves nothing" (at "/posts/../about.html") "missing")
+  (expect "a page that is not there" (at "/nothing.html") "missing")
+  (expect "a page is not a folder" (at "/about.html/") "missing")
+
+  ;; --- pages --------------------------------------------------------------
+  (def about (html-at site "/about.html"))
+  (expect-true "the title from the meta" (string-contains? about "<h1>About this site</h1>"))
+  (expect-true "the date from the meta, written without quotes"
+               (string-contains? about "<time>2026-01-15</time>"))
+  (expect-true "a section is one level below the title"
+               (string-contains? about "<h2 id=\"who\">Who</h2>"))
+  (expect-true "typography" (string-contains? about "Someone – with “quotes”."))
+  (expect-true "the path line begins with the title of the site's index.sz"
+               (string-contains? about "<nav class=\"path\"><a href=\"/\">Glasnost test</a> / <span>about.html</span></nav>"))
+  (expect-true "the site's style sheet, after the built-in one"
+               (in-order? about ["<style>" "<link rel=\"stylesheet\" href=\"/_resources/glasnost.css\">"]))
+  (expect-true "no font is set" (not (string-contains? about "font")))
+  (expect-true "dark when the reader prefers it" (string-contains? about "prefers-color-scheme: dark"))
+  (expect-true "no script" (not (string-contains? about "<script")))
+  (expect-true "a page with no meta is called by its name"
+               (string-contains? (html-at site "/plain.html") "<h1>plain</h1>"))
+  (expect-true "the path line of a page further down"
+               (string-contains? (html-at site "/sub/deep/page.html")
+                                 "<a href=\"/\">Glasnost test</a> / <a href=\"/sub/\">sub</a> / <a href=\"/sub/deep/\">deep</a> / <span>page.html</span>"))
+
+  ;; --- the include rule ---------------------------------------------------
+  (expect-true "a file that is not hidden is not included"
+               (string-contains? (html-at site "/bad-include.html")
+                                 "@include: about.sz is not hidden"))
+  (expect-true "a hidden one is" (string-contains? (html-at site "/") "Hello from a partial."))
+  (expect-true "hidden-path?, in a hidden folder" (hidden-path? site (path-combine root "_parts" "greeting.sz")))
+  (expect-true "hidden-path?, not" (not (hidden-path? site (path-combine root "about.sz"))))
+
+  ;; --- what cannot be made ------------------------------------------------
+  (expect "a command that is not there, the file named from the site's folder"
+          (html-at site "/broken.html")
+          "error: broken.sz:3:11: @nosuchcommand: there is no such command")
+  (expect-true "is not kept" (not (file-exists? (kept-at site "/broken.html"))))
+
+  ;; --- menus --------------------------------------------------------------
+  (def front (html-at site "/"))
+  (expect-true "the front page: its index.sz, then its menu"
+               (in-order? front ["<h1>Glasnost test</h1>" "The front page" "<div class=\"menu\">"]))
+  (expect-true "a folder in the menu, by the title of its index.sz, with a slash"
+               (string-contains? front "<a href=\"posts/\">Posts</a><span class=\"marker\">/</span>"))
+  (expect-true "a folder without an index.sz, by its name"
+               (string-contains? front "<a href=\"sub/\">sub</a>"))
+  (expect-true "a page by its title" (string-contains? front "<a href=\"about.html\">About this site</a>"))
+  (expect-true "and its date" (string-contains? front "About this site</a><span class=\"date\">2026-01-15</span>"))
+  (expect-true "a page with no meta by its name" (string-contains? front "<a href=\"plain.html\">plain</a>"))
+  (expect-true "other files by their names" (string-contains? front "<a href=\"notes.txt\">notes.txt</a>"))
+  (expect-true "folders first"
+               (in-order? front ["<a href=\"sub/\">" "<a href=\"about.html\">"]))
+  (expect-true "nothing hidden is listed"
+               (not (or (string-contains? front "_hidden") (string-contains? front "_drafts")
+                        (string-contains? front "_parts") (string-contains? front "_resources\">")
+                        (string-contains? front ".dotfile") (string-contains? front "_cache")
+                        (string-contains? front "index.sz"))))
+  (expect-true "(sort title)"
+               (in-order? (html-at site "/posts/") [">Alpha<" ">Beta<" ">Gamma<"]))
+  (def dated (html-at site "/dated/"))
+  (expect-true "newest first; the folder first; a date that cannot be read last"
+               (in-order? dated [">An older folder<" ">z<" ">Newer<" ">Oldest<" ">Undated<"]))
+  (expect-true "a date that cannot be read is shown as it is"
+               (string-contains? dated "<span class=\"date\">someday</span>"))
+  (expect-true "a folder's date in its line" (string-contains? dated "<span class=\"date\">2019-01-01</span>"))
+  (directory-create (path-combine root "weird"))
+  (rewrite! "weird/index.sz" "(meta (sort size))")
+  (expect-true "a (sort ...) that makes no sense"
+               (string-contains? (html-at site "/weird/") "the key is date, title or name"))
+
+  ;; --- the cache ----------------------------------------------------------
+  (def kept (kept-at site "/about.html"))
+  (expect-true "a page is kept" (file-exists? kept))
+  (expect-true "with what it was made from"
+               (string-contains? (file-read-text (str kept ".sources")) (path-combine root "about.sz")))
+  (def first-made (.-Ticks (written-utc kept)))
+  (ignore (html-at site "/about.html"))
+  (expect "and not made again while nothing has changed" (.-Ticks (written-utc kept)) first-made)
+  (rewrite! "about.sz" "(meta (title \"About, again\"))\n\nChanged.")
+  (expect-true "a page is made again when its .sz changes"
+               (string-contains? (html-at site "/about.html") "<h1>About, again</h1>"))
+  (rewrite! "_parts/greeting.sz" "Hello again.")
+  (expect-true "and when a file it includes does"
+               (string-contains? (html-at site "/") "Hello again."))
+  (expect-true "a menu shows a new title" (string-contains? (html-at site "/") ">About, again<"))
+  (rewrite! "posts/d.sz" "(meta (title \"Delta\"))")
+  (expect-true "a menu lists a new page" (string-contains? (html-at site "/posts/") ">Delta<"))
+  (file-delete (path-combine root "posts" "b.sz"))
+  (expect-true "and not one that is gone" (not (string-contains? (html-at site "/posts/") ">Beta<")))
+  (file-delete (path-combine root "_resources" "glasnost.css"))
+  (expect-true "a page without the style sheet once it is gone"
+               (not (string-contains? (html-at site "/about.html") "glasnost.css")))
+  (rewrite! "_resources/glasnost.css" "body { }")
+  (expect-true "and with it once it is back"
+               (string-contains? (html-at site "/about.html") "glasnost.css"))
+
+  ;; --- old caches ---------------------------------------------------------
+  (def caches (path-combine work "pages"))
+  (directory-create (path-combine caches "0123456789ab"))
+  (directory-create (path-combine caches "not-a-cache"))
+  (expect "old caches are removed" (vec-map (fun (d) (relative-to caches d)) (clear-old-caches! site))
+          ["0123456789ab"])
+  (expect-true "a folder that is not one is left" (directory-exists? (path-combine caches "not-a-cache")))
+  (expect-true "and so is this one" (directory-exists? (site-cache site)))
+  (expect-true "the cache is in the site's _cache unless it is said otherwise"
+               (string-starts-with? (site-cache (make-site root)) (path-combine root "_cache")))
+
+  ;; --- files --------------------------------------------------------------
+  (expect "a style sheet's type" (asset-type "a/b.css") "text/css; charset=utf-8")
+  (expect "an extension in capitals" (asset-type "CAT.PNG") "image/png")
+  (expect "one nobody knows" (asset-type "x.unknown") "application/octet-stream")
+  0)
+
+;; --- over HTTP ---------------------------------------------------------------
+
+;; A port nobody is listening on, as the OS hands one out.
+(: free-port (-> int))
+(defun (free-port)
+  (def probe (PortProbe. loopback 0))
+  (start-probe probe)
+  (def port (match (cast Object (bound-to probe))
+              ((:is System.Net.IPEndPoint here) (ip-port here))
+              (_ 0)))
+  (stop-probe probe)
+  port)
+
+;; "200 text/html; charset=utf-8 +": the status, the type, where a redirect
+;; goes, and whether the body has `needle` in it.
+(: over-http (-bjo-> http/Request string string))
+(defbjo (over-http req needle)
+  (match (fetch req)
+    ((Err e) (str "failed: " (.-Message e)))
+    ((Ok r)
+     (let* ((code (http-status r))
+            (type (option-ref-or (http-header r "content-type") "-"))
+            (location (option-ref-or (http-header r "location") ""))
+            ;; `response-text` reads to the end with a read that parks the
+            ;; thread, and so is done off the fiber.
+            (body (match (sync (blocking (fun () (http-text r))))
+                    ((Ok text) text)
+                    ((Err e) (str "failed: " (.-Message e))))))
+       ;; A response owns a connection, and `ignore` is what closes it.
+       (ignore r)
+       (str (int->string code) " " type
+            (if (string-empty? location) "" (str " -> " location))
+            (if (string-contains? body needle) " +" " -"))))))
+
+(: check-http (-bjo-> void))
+(defbjo (check-http)
+  (def site (match (sync (blocking (fun () (make-site root #:cache (path-combine work "pages")))))
+              ((Ok s) s)
+              ((Err e) (raise e))))
+  (def port (free-port))
+  (def at (fun (path) (str "http://127.0.0.1:" (int->string port) path)))
+  (with-scope
+    (let ((server (start-server (site-router site) #:port port #:workers 2)))
+      (try
+          ;; Redirects are not followed, so that one can be seen.
+          (parameterize ((current-http-client (make-client #:redirects #f)))
+            (expect "a page" (over-http (get (at "/about.html")) "<h1>About, again</h1>")
+                    "200 text/html; charset=utf-8 +")
+            (expect "the front page" (over-http (get (at "/")) "Hello again.")
+                    "200 text/html; charset=utf-8 +")
+            (expect "a folder without its slash" (over-http (get (at "/posts")) "")
+                    "302 text/plain; charset=utf-8 -> /posts/ +")
+            (expect "a file, with its type" (over-http (get (at "/notes.txt")) "Some notes")
+                    "200 text/plain; charset=utf-8 +")
+            (expect "the site's style sheet" (over-http (get (at "/_resources/glasnost.css")) "body")
+                    "200 text/css; charset=utf-8 +")
+            (expect "a hidden page, which is not found" (over-http (get (at "/_drafts/secret.html")) "Not found")
+                    "404 text/html; charset=utf-8 +")
+            (expect "a hidden file, which is not either" (over-http (get (at "/_parts/greeting.sz")) "Not found")
+                    "404 text/html; charset=utf-8 +")
+            (expect "a page that cannot be made says why"
+                    (over-http (get (at "/broken.html")) "broken.sz:3:11: @nosuchcommand")
+                    "500 text/html; charset=utf-8 +")
+            (expect "a POST is not answered" (over-http (post (at "/about.html") (Text "x")) "")
+                    "405 text/plain; charset=utf-8 +"))
+        #:finally (stop-server! server)))))
+
+(defbjo (main args)
+  (match (sync (blocking (fun () (check-site))))
+    ((Ok code)
+     (check-http)
+     code)
+    ((Err e)
+     (println (str "FAILURE: the checks raised " (.-Message e)))
+     1)))

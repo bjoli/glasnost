@@ -1,0 +1,10 @@
+.bjo/
+*.dll
+*.exe
+*.pdb
+*.bjobuild
+*.runtimeconfig.json
+*.deps.json
+# What the tests generate, and glasnost run on the test site.
+tests/cache/
+tests/site/_cache/

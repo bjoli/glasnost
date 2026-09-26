@@ -1,0 +1,475 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/src/site.bjo — the module (glasnost site).
+;;
+;; A site is a folder. What a URL asks for is found in it:
+;;
+;;     /notes/cookies.html    the page made from notes/cookies.sz
+;;     /notes/                the folder notes: its index.sz, and its menu
+;;     /notes/index.html      the same
+;;     /notes                 a redirect to /notes/
+;;     /notes/cat.png         notes/cat.png, as it is
+;;
+;; A name that begins with `_` or `.` is hidden: it is in no menu, and no URL
+;; reaches it — except `_resources`, whose files are served as they are, for
+;; a site's style sheet and its fonts. A `.sz` file is never served as it is.
+;; A page wins over an `.html` file of the same name, and `index.html` is
+;; always the folder's.
+;;
+;; A page is made when it is asked for, and kept under the cache folder, which
+;; is named by the fingerprint of the code that made it. Beside it is the list
+;; of what it was made from: the `.sz`, what that includes, and for a folder
+;; everything its menu says something about. It is made again when one of
+;; them has been written since, or is gone. What cannot be made is not kept.
+;;
+;; `@include` includes only hidden files. A file that is not hidden would be
+;; a page of its own as well.
+;;
+;; Everything here reads and writes files, and parks the thread it runs on
+;; while it does: the entry points are `#:sync`, and a server calls them off
+;; its fibers, with `(sync (blocking (fun () ...)))`.
+
+(export
+  Site Target
+  make-site site-root site-cache site-commands
+  resolve target-html message-page
+  clear-old-caches! asset-type hidden-path?)
+
+(import (std prelude))
+(import (samizdat read))
+(import (samizdat doc))
+(import (samizdat expand))
+(import (samizdat commands))
+(import (samizdat html))
+(import (glasnost fingerprint))
+(import (glasnost index))
+(import (glasnost layout))
+
+(import/class
+  (DateTime (: System.DateTime))
+  (Guid (: System.Guid)))
+
+(import/extern
+  (utc-now (: System.DateTime.UtcNow (-> DateTime) #:get))
+  (compare-times (: System.DateTime.Compare (-> DateTime DateTime int)))
+  (set-written-utc! (: System.IO.File.SetLastWriteTimeUtc (-> string DateTime void)))
+  (move-file! (: System.IO.File.Move (-> string string bool void)))
+  (trim-separator (: System.IO.Path.TrimEndingDirectorySeparator (-> string string)))
+  (relative-to (: System.IO.Path.GetRelativePath (-> string string string)))
+  (rooted? (: System.IO.Path.IsPathRooted (-> string bool)))
+  (parent-of (: System.IO.Path.GetDirectoryName (-> string string)))
+  (name-in-folder (: System.IO.Path.GetFileName (-> string string)))
+  (no-text? (: System.String.IsNullOrEmpty (-> string bool)))
+  (new-guid (: System.Guid.NewGuid (-> Guid)))
+  (segment-escape (: System.Uri.EscapeDataString (-> string string))))
+
+;; ---------------------------------------------------------------------------
+;; A site
+;; ---------------------------------------------------------------------------
+
+;; `root` is the folder the site is in, and `cache` the folder pages made from
+;; it are kept in: one named by the fingerprint, made when it is first
+;; written to.
+(type (: Site (Record (: root string)
+                      (: cache string)
+                      (: commands (Map string Command)))))
+
+(: site-root (-> Site string))
+(defun (site-root site) (record-ref site root))
+
+(: site-cache (-> Site string))
+(defun (site-cache site) (record-ref site cache))
+
+;; The site in the folder `root`. Its caches are in `#:cache`, `_cache` in the
+;; site unless it says otherwise; `#:commands` are more commands, or other
+;; ones, for its pages.
+(: make-site #:sync (-> string (#:cache string) (#:commands (Map string Command)) Site))
+(defun (make-site root #:cache "" #:commands (map-empty))
+  (def full (trim-separator (path-absolute root)))
+  (def caches (if (string-empty? cache)
+                  (path-combine full "_cache")
+                  (trim-separator (path-absolute cache))))
+  (Site (root full)
+        (cache (path-combine caches (fingerprint)))
+        (commands (map-merge (site-commands full) commands))))
+
+;; A folder a fingerprint names: twelve hex digits.
+(: fingerprint-name? (-> string bool))
+(defun (fingerprint-name? name)
+  (and (= (string-length name) 12)
+       (string-fold (fun (c ok) (and ok (or (char-numeric? c) (and (char>=? c #\a) (char<=? c #\f)))))
+                    #t
+                    name)))
+
+;; Removes the caches beside this one — what other code made, which nothing
+;; will read again — and answers where they were. A folder there that is not
+;; named as a cache is is left alone.
+(: clear-old-caches! #:sync (-> Site (Vec string)))
+(defun (clear-old-caches! site)
+  (def mine (record-ref site cache))
+  (def caches (parent-of mine))
+  (def old (if (directory-exists? caches)
+               (loop (:for dir (directory-subdirectories caches))
+                     (:when (and (not (= dir mine)) (fingerprint-name? (name-in-folder dir))))
+                     (:acc (vecing dir)))
+               (vec-empty)))
+  (vec-for-each directory-delete-tree old)
+  old)
+
+;; ---------------------------------------------------------------------------
+;; Hidden files, and @include
+;; ---------------------------------------------------------------------------
+
+(: path-parts (-> string (Vec string)))
+(defun (path-parts rel)
+  (vec-filter (fun (s) (not (string-empty? s))) (string-split (string-replace rel "\\" "/") "/")))
+
+;; A path relative to the site that does not leave it.
+(: inside-site? (-> string bool))
+(defun (inside-site? rel)
+  (not (or (= rel "..")
+           (string-starts-with? rel "../")
+           (string-starts-with? rel "..\\")
+           (rooted? rel))))
+
+;; Whether the file or folder at `full`, in the site, is hidden: its name, or
+;; that of a folder it is in, begins with _ or .
+(: hidden-path? (-> Site string bool))
+(defun (hidden-path? site full)
+  (any? hidden-name? (path-parts (relative-to (record-ref site root) (path-absolute full)))))
+
+;; @include["_parts/header.sz"], which refuses a file that is not hidden, or
+;; not in the site.
+(: include-hidden #:sync (-> string Command))
+(defun (include-hidden root)
+  (fun (cx c)
+    (check-keywords! cx c (vec-empty))
+    (when (has-body? c) (refuse cx c "takes no body"))
+    (def written (arg-string cx c 0))
+    (def full (path-absolute (relative-path cx written)))
+    (def rel (relative-to root full))
+    (cond
+      ((not (inside-site? rel)) (refuse cx c (str full " is not in the site")))
+      ((not (any? hidden-name? (path-parts rel)))
+       (refuse cx c (str written " is not hidden, and would be a page of its own as well:"
+                         " the name of an included file, or of a folder it is in, begins with _")))
+      (else (include-file cx c written)))))
+
+;; samizdat's commands, with the @include a site has.
+(: site-commands #:sync (-> string (Map string Command)))
+(defun (site-commands root)
+  (map-set standard-commands "include" (include-hidden root)))
+
+;; ---------------------------------------------------------------------------
+;; URLs
+;; ---------------------------------------------------------------------------
+
+;; What a URL is. A page: its .sz, where it is kept, and the URL's parts. A
+;; folder: the folder, where its page is kept, and the URL's parts. A file
+;; served as it is. A redirect: where to.
+(type (: Target (Union (Page string string (Vec string))
+                       (Folder string string (Vec string))
+                       (Asset string)
+                       (Redirect string)
+                       Missing)))
+
+(: nul string)
+(def nul (char->string (integer->char 0)))
+
+;; A part no file in the site has for a name: `..` would leave it.
+(: unsafe-part? (-> string bool))
+(defun (unsafe-part? s)
+  (or (= s "..") (= s ".")
+      (string-contains? s "\\")
+      (string-contains? s nul)
+      (rooted? s)))
+
+(: under (-> string (Vec string) string))
+(defun (under base parts)
+  (loop (:for p parts)
+        (:acc path (folding base (path-combine path p)))))
+
+(: url-of (-> (Vec string) string))
+(defun (url-of parts)
+  (str "/" (string-join (vec-map segment-escape parts) "/")))
+
+(: last-part (-> (Vec string) string))
+(defun (last-part parts)
+  (if (vec-empty? parts) "" (vec-ref parts (- (vec-length parts) 1))))
+
+(: page-source (-> string string))
+(defun (page-source html-path)
+  (str (.Substring html-path 0 (- (string-length html-path) 5)) ".sz"))
+
+;; What `path` — the URL's path, decoded — is in the site.
+(: resolve (-> Site string Target))
+(defun (resolve site path)
+  (def parts (path-parts path))
+  (def slash (or (vec-empty? parts) (string-ends-with? path "/")))
+  (cond
+    ((any? unsafe-part? parts) Missing)
+    ((and (not (vec-empty? parts)) (= (vec-ref parts 0) "_resources"))
+     (resource site parts slash))
+    ((any? hidden-name? parts) Missing)
+    (else (visible site parts slash))))
+
+;; In _resources: files, as they are, and nothing else.
+(: resource (-> Site (Vec string) bool Target))
+(defun (resource site parts slash)
+  (def full (under (record-ref site root) parts))
+  (cond
+    (slash Missing)
+    ((any? (fun (p) (string-starts-with? p ".")) parts) Missing)
+    ((and (file-exists? full) (not (string-ends-with? full ".sz"))) (Asset full))
+    (else Missing)))
+
+(: folder-target (-> Site (Vec string) Target))
+(defun (folder-target site parts)
+  (Folder (under (record-ref site root) parts)
+          (path-combine (under (record-ref site cache) parts) "index.html")
+          parts))
+
+(: visible (-> Site (Vec string) bool Target))
+(defun (visible site parts slash)
+  (def full (under (record-ref site root) parts))
+  (def name (last-part parts))
+  (cond
+    ((directory-exists? full)
+     (if slash (folder-target site parts) (Redirect (str (url-of parts) "/"))))
+    (slash Missing)
+    ((= name "index.html")
+     (def folder (vec-pop parts))
+     (if (directory-exists? (under (record-ref site root) folder))
+         (folder-target site folder)
+         Missing))
+    ((and (string-ends-with? name ".html") (file-exists? (page-source full)))
+     (Page (page-source full) (under (record-ref site cache) parts) parts))
+    ((and (file-exists? full) (not (string-ends-with? name ".sz"))) (Asset full))
+    (else Missing)))
+
+;; ---------------------------------------------------------------------------
+;; The cache
+;; ---------------------------------------------------------------------------
+
+;; Beside a kept page: what it was made from, a path to a line.
+(: sources-file (-> string string))
+(defun (sources-file kept) (str kept ".sources"))
+
+;; A kept page is written with the time its making began, and is fresh while
+;; everything it was made from is there and was last written before that.
+(: fresh? (-> string bool))
+(defun (fresh? kept)
+  (def listed (sources-file kept))
+  (and (file-exists? kept)
+       (file-exists? listed)
+       (let ((made (last-written kept)))
+         (all? (fun (source)
+                 (and (or (file-exists? source) (directory-exists? source))
+                      (<= (compare-times (last-written source) made) 0)))
+               (path-lines (file-read-text listed))))))
+
+(: path-lines (-> string (Vec string)))
+(defun (path-lines text)
+  (vec-filter (fun (l) (not (string-empty? l))) (string-split text "\n")))
+
+;; Written beside where it goes, and moved there: a reader finds the old one
+;; or the new one, and never half of either.
+(: write-whole! (-> string string DateTime void))
+(defun (write-whole! path text time)
+  (def temporary (str path "." (.ToString (new-guid)) ".tmp"))
+  (file-write-text temporary text)
+  (set-written-utc! temporary time)
+  (move-file! temporary path #t))
+
+(: store! (-> string string (Vec string) DateTime void))
+(defun (store! kept html sources started)
+  (directory-create (parent-of kept))
+  (write-whole! (sources-file kept) (string-join sources "\n") started)
+  (write-whole! kept html started))
+
+(type (: Made (Alias (Result string (Tuple string (Vec string))))))
+
+(: kept-or-made #:sync (-> string (-> Made) (Result string string)))
+(defun (kept-or-made kept make)
+  (if (fresh? kept)
+      (Ok (file-read-text kept))
+      (let ((started utc-now))
+        (match (make)
+          ((Err e) (Err e))
+          ((Ok (Tuple html sources))
+           (store! kept html sources started)
+           (Ok html))))))
+
+;; A message with the files in it named from the site's folder: a reader of
+;; the page that says what went wrong is told `notes/x.sz:3:11`, and not
+;; where the site is on the machine.
+(: from-site (-> Site string string))
+(defun (from-site site message)
+  (def root (record-ref site root))
+  (string-replace (string-replace message (str root "/") "") (str root "\\") ""))
+
+;; The HTML for a page or a folder: kept, when it is fresh, and otherwise
+;; made and kept. What cannot be made is the reason why, and nothing is kept.
+(: target-html #:sync (-> Site Target (Result string string)))
+(defun (target-html site target)
+  (def made (match target
+              ((Page sz kept parts) (kept-or-made kept (fun () (make-page site sz parts))))
+              ((Folder dir kept parts) (kept-or-made kept (fun () (make-folder site dir parts))))
+              (_ (Err "only a page or a folder is made"))))
+  (match made
+    ((Ok html) (Ok html))
+    ((Err why) (Err (from-site site why)))))
+
+;; ---------------------------------------------------------------------------
+;; Making pages
+;; ---------------------------------------------------------------------------
+
+(: distinct (-> (Vec string) (Vec string)))
+(defun (distinct xs)
+  (loop (:for x xs)
+        (:acc out (folding (vec-empty) (if (vec-contains out x) out (vec-add out x))))))
+
+;; A path when it is there; otherwise the nearest folder above it that is,
+;; which is written when the path comes.
+(: existence-source (-> string string))
+(defun (existence-source path)
+  (if (or (file-exists? path) (directory-exists? path))
+      path
+      (let ((up (parent-of path)))
+        (if (or (no-text? up) (= up path)) path (existence-source up)))))
+
+;; What every page has from the site: the name the path line begins with —
+;; the title of the site's index.sz, or the folder's name — and the site's
+;; style sheet, when it has one; and what they come from.
+(type (: Surroundings (Record (: name string)
+                              (: stylesheet string)
+                              (: sources (Vec string)))))
+
+(: surroundings (-> Site Surroundings))
+(defun (surroundings site)
+  (def root (record-ref site root))
+  (def index (path-combine root "index.sz"))
+  (def css (path-combine root "_resources" "glasnost.css"))
+  (def folder-name (option-ref-or (path-filename root) "/"))
+  (def name (match (if (file-exists? index) (read-meta index) None)
+              ((Some doc) (option-ref-or (meta-string doc "title") folder-name))
+              (None folder-name)))
+  (Surroundings (name name)
+                (stylesheet (if (file-exists? css) "/_resources/glasnost.css" ""))
+                (sources [(existence-source index) (existence-source css)])))
+
+;; The path line: the site, each folder on the way, and the page itself.
+(: crumbs-for (-> string (Vec string) (Vec Crumb)))
+(defun (crumbs-for site-name parts)
+  (def n (vec-length parts))
+  (vec-insert (loop (:for i (up-from 1))
+                    (:for p parts)
+                    (:acc (vecing (Tuple p (if (= i n) "" (str (url-of (vec-slice parts 0 i)) "/"))))))
+              0
+              (Tuple site-name (if (= n 0) "" "/"))))
+
+(: make-page #:sync (-> Site string (Vec string) Made))
+(defun (make-page site sz parts)
+  (match (read-document-file sz (record-ref site commands))
+    ((Err e) (Err e))
+    ((Ok doc)
+     (def around (surroundings site))
+     (match (describe (Some doc) (page-stem (name-in-folder sz)) (last-written sz))
+       ((Tuple title date sortable)
+        (Ok (Tuple (page-layout #:title title
+                                #:date date
+                                #:crumbs (crumbs-for (record-ref around name) parts)
+                                #:content (document->html doc)
+                                #:stylesheet (record-ref around stylesheet))
+                   (distinct (vec-merge (record-ref doc sources) (record-ref around sources))))))))))
+
+(: make-folder #:sync (-> Site string (Vec string) Made))
+(defun (make-folder site dir parts)
+  (def index (path-combine dir "index.sz"))
+  (if (file-exists? index)
+      (match (read-document-file index (record-ref site commands))
+        ((Err e) (Err e))
+        ((Ok doc) (folder-page site dir parts (Some doc))))
+      (folder-page site dir parts None)))
+
+;; A folder's page: its index.sz, when it has one, and its menu. The menu is
+;; made again when the folder changes — something comes or goes — and when
+;; anything it lists does.
+(: folder-page (-> Site string (Vec string) (Option Document) Made))
+(defun (folder-page site dir parts index)
+  (match (sorting-of index)
+    ((Err e) (Err (str (path-combine dir "index.sz") ": " e)))
+    ((Ok sorting)
+     (def around (surroundings site))
+     (def entries (sort-entries sorting (folder-entries dir)))
+     (def name (if (vec-empty? parts) (record-ref around name) (last-part parts)))
+     (def title (match (describe index name (last-written dir))
+                  ((Tuple t d s) t)))
+     (def date (match index
+                 ((Some doc) (option-ref-or (meta-date doc) ""))
+                 (None "")))
+     (def index-sources (match index
+                          ((Some doc) (record-ref doc sources))
+                          (None (vec-empty))))
+     (def listed (loop (:for e entries)
+                       (:acc all (folding (vec-empty) (vec-merge all (record-ref e sources))))))
+     (Ok (Tuple (page-layout #:title title
+                             #:date date
+                             #:crumbs (crumbs-for (record-ref around name) parts)
+                             #:content (match index
+                                         ((Some doc) (document->html doc))
+                                         (None ""))
+                             #:menu (blocks->html default-html (menu-blocks entries))
+                             #:stylesheet (record-ref around stylesheet))
+                (distinct (vec-merge (vec-merge (vec-insert index-sources 0 dir) listed)
+                                     (record-ref around sources))))))))
+
+;; A page that says something went wrong, which is not kept: "Not found",
+;; and why.
+(: message-page #:sync (-> Site string string string))
+(defun (message-page site title text)
+  (def around (surroundings site))
+  (page-layout #:title title
+               #:crumbs [(Tuple (record-ref around name) "/")]
+               #:content (str "<p class=\"error\">" (escape-html text) "</p>")
+               #:stylesheet (record-ref around stylesheet)))
+
+;; ---------------------------------------------------------------------------
+;; Files served as they are
+;; ---------------------------------------------------------------------------
+
+;; The Content-Type for a file, by its extension.
+(: asset-type (-> string string))
+(defun (asset-type path)
+  (case (string-downcase (option-ref-or (path-file-extension path) ""))
+    ((".html" ".htm") "text/html; charset=utf-8")
+    (".css" "text/css; charset=utf-8")
+    ((".js" ".mjs") "text/javascript; charset=utf-8")
+    ((".txt" ".md" ".org" ".csv" ".bjo" ".bjodat" ".scm" ".el") "text/plain; charset=utf-8")
+    (".json" "application/json")
+    (".xml" "application/xml")
+    ((".rss" ".atom") "application/xml")
+    (".svg" "image/svg+xml")
+    (".png" "image/png")
+    ((".jpg" ".jpeg") "image/jpeg")
+    (".gif" "image/gif")
+    (".webp" "image/webp")
+    (".avif" "image/avif")
+    (".ico" "image/x-icon")
+    (".pdf" "application/pdf")
+    (".woff" "font/woff")
+    (".woff2" "font/woff2")
+    (".ttf" "font/ttf")
+    (".otf" "font/otf")
+    (".mp3" "audio/mpeg")
+    (".ogg" "audio/ogg")
+    (".flac" "audio/flac")
+    (".wav" "audio/wav")
+    (".mp4" "video/mp4")
+    (".webm" "video/webm")
+    (".zip" "application/zip")
+    (".gz" "application/gzip")
+    (".wasm" "application/wasm")
+    (else "application/octet-stream")))
