@@ -8,10 +8,10 @@
     (package (name (bjoweb))
              (version (version-at-least "0.3.0"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
-    ;; 0.3.0, which says what files a document was made from, is not
-    ;; published yet.
+    ;; 0.3.0 says what files a document was made from.
     (package (name (samizdat))
-             (source (path (dir "../samizdat")))))
+             (version (version-at-least "0.3.0"))
+             (source (git (url "https://github.com/bjoli/samizdat")))))
 
   ;; A program: src/main.bjo.
   )

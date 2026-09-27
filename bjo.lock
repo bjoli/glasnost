@@ -11,4 +11,7 @@
              (commit "4fe70c64df26e9b6da26ebcf58045f6a320b8ca3"))
     (package (name (net websocket)) (version "0.1.1")
              (source (git (url "https://github.com/bjoli/websocket")))
-             (commit "79a82d1c838448a4519657cb11559e6cbf887bd6"))))
+             (commit "79a82d1c838448a4519657cb11559e6cbf887bd6"))
+    (package (name (samizdat)) (version "0.3.0")
+             (source (git (url "https://github.com/bjoli/samizdat")))
+             (commit "aec5252086f674626edcd47963d3c912349017e4"))))

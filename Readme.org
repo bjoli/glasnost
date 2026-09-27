@@ -7,7 +7,7 @@ changes. A folder is a menu of what is in it, as Gopher had them.
 
 #+BEGIN_SRC text
 bjo build
-bjo run src/main.bjo SITE [--cache DIR] [--port N] [--host H]
+bjo run . SITE [--cache DIR] [--port N] [--host H]
 #+END_SRC
 
 It listens on 127.0.0.1:8080 unless told otherwise. Ctrl-C stops it.
@@ -121,10 +121,9 @@ pages, menus, the include rule, the cache, and the server over HTTP.
 
 ** What it needs
 
-[[https://github.com/bjoli/bjoweb][bjoweb]] 0.3.0 or later, and samizdat 0.3.0, which says what files a document
-was made from. Until that is published, samizdat is found at ~../samizdat~.
-samizdat's Markdown comes from Markdig, through NuGet, so building needs the
-~dotnet~ SDK.
+[[https://github.com/bjoli/bjoweb][bjoweb]] 0.3.0 or later, and samizdat 0.3.0 or later, which says what
+files a document was made from. samizdat's Markdown comes from Markdig,
+through NuGet, so building needs the ~dotnet~ SDK.
 
 ** License
 
