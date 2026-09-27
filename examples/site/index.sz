@@ -1,0 +1,20 @@
+(meta (title "An example site"))
+
+This site is served by @link["https://github.com/bjoli/glasnost"]{glasnost}.
+Every page on it is a @code{.sz} file, written in
+@link["https://github.com/bjoli/samizdat"]{samizdat} and made into HTML the
+first time it is asked for. Every folder is a menu of what is in it, like the
+one below, which is this folder's.
+
+To serve it yourself, from glasnost's folder:
+
+@codeblock|{
+bjo run . examples/site
+}|
+
+and open @link["http://127.0.0.1:8080/"]. Change a file, and its page is made
+again the next time it is read.
+
+Where to start:
+
+@include["_parts/where-to-start.sz"]

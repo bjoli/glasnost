@@ -1,0 +1,6 @@
+@read-list{
+- @link["about.html"]{About this site}, for what is where;
+- @link["notes/"]{Notes}, on how glasnost works, newest first;
+- @link["recipes/"]{Recipes}, a folder sorted by title;
+- @link["files/"]{Files}, which are not pages.
+}

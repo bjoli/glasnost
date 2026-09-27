@@ -1,0 +1,19 @@
+(meta (title "Yellow pea soup"))
+
+Thursday's soup, with pancakes after it.@note{The
+@link["pancakes.html"]{pancakes}.}
+
+@read-list{
+- 4 dl dried yellow peas, soaked overnight
+- 1.5 l water
+- 1 onion, chopped
+- 300 g salted pork, or none
+- thyme and marjoram
+}
+
+@itemlist[#:style ordered]{
+  @item{Boil the peas in fresh water, skimming off the shells that float up.}
+  @item{Add the onion, the pork and the herbs, and let it simmer for an hour
+  and a half.}
+  @item{Salt it to taste, and serve it with mustard.}
+}

@@ -1,0 +1,47 @@
+(meta (title "Writing a page")
+      (date 2026-09-20))
+
+A page is a @code{.sz} file: text, with commands in it where the text needs
+more than text. A command is an @code{@"@"} and a name, perhaps arguments in
+brackets, and perhaps a body in braces:
+
+@codeblock|<{
+(meta (title "Writing a page")
+      (date 2026-09-20))
+
+A page is a @code{.sz} file: text, with @em{commands} in it.@note{Like
+this one, which is a footnote.}
+
+@section{A section}
+
+@link["https://example.com"]{A link}, and some code:
+
+@codeblock[#:lang "scheme"]|{
+  (println "hello")
+}|
+}>|
+
+The @code{(meta ...)} at the top is where the title and the date are. They
+are what the page's header says, and what the menu of its folder says about
+it. A page without them is called by its file's name, and dated by when the
+file was last written. A date may be written with quotes or without.
+
+A blank line starts a new paragraph. Quotes curl by themselves, "like this",
+and three dashes --- like these --- are a dash.@note{Code is left as it was
+typed: @code{"straight" -- quotes}.}
+
+@section{What there is}
+
+@read-list{
+- @em{emphasis}, @strong{strong}, @code{code} and @link["menus.html"]{links};
+- sections, which are the headings of a page, below its title;
+- footnotes, which go to the end;
+- code blocks, lists, @link["lists-and-tables.html"]{tables} and quotations;
+- @link["markdown.html"]{Markdown}, where it is quicker;
+- @code{@"@"include}, for a piece of a page kept in a file of its own.
+}
+
+The whole of it is in samizdat's
+@link["https://github.com/bjoli/samizdat"]{Readme}.
+
+@include["../_parts/signature.sz"]

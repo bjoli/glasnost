@@ -1,0 +1,7 @@
+(meta (title "Files") (sort name))
+
+What is not a page is listed by its name, dated by when it was last written,
+and served as it is, with a type by its extension. This folder is sorted by
+name.
+
+@image["glasnost.svg" #:alt "Three lines, as a menu has"]

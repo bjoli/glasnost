@@ -1,0 +1,14 @@
+/* The site's own style sheet, read after glasnost's, which it may change in
+   any way. This one gives the links another colour, in light and in dark. */
+
+:root {
+  --link: #1f6f5c;
+  --visited: #5b4a8a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --link: #7fd1bd;
+    --visited: #b9a6e8;
+  }
+}

@@ -1,0 +1,32 @@
+(meta (title "About this site")
+      (date 2026-09-27))
+
+@section{What is where}
+
+Every @code{.sz} file is a page, and every folder is a menu of what is in it.
+A folder's @code{index.sz} is the page above its menu, and says how the menu
+is sorted.
+
+@read-table{
+| In the folder                | At the URL                |
+|------------------------------+---------------------------|
+| @code{about.sz}              | @code{/about.html}        |
+| @code{notes/}                | @code{/notes/}            |
+| @code{notes/index.sz}        | the top of @code{/notes/} |
+| @code{files/hello.bjo}       | @code{/files/hello.bjo}   |
+| @code{_drafts/unfinished.sz} | nowhere                   |
+}
+
+@section{Hidden}
+
+A name that begins with @code{_} or @code{.} is hidden. This site has three
+hidden folders: @code{_parts}, with pieces of pages that others include;
+@code{_drafts}, with a page that is not ready; and @code{_resources}, the one
+whose files are served, which has the
+@link["/_resources/glasnost.css"]{style sheet} that colours the links.
+
+@section{How it looks}
+
+The page is set in whatever font your browser uses. glasnost's own style
+sheet chooses colours, a column and some space, and follows your light or
+dark preference. The site's comes after it, and may change anything.

@@ -12,6 +12,20 @@ bjo run . SITE [--cache DIR] [--port N] [--host H]
 
 It listens on 127.0.0.1:8080 unless told otherwise. Ctrl-C stops it.
 
+** An example
+
+~examples/site~ is a small site that says how glasnost works, in notes, and
+has a folder of recipes sorted by title, a folder of files that are not
+pages, a hidden folder of parts the notes include, a hidden draft, and a
+style sheet of its own. To see it:
+
+#+BEGIN_SRC text
+bjo run . examples/site
+#+END_SRC
+
+and open http://127.0.0.1:8080/. Its pages are kept in ~examples/site/_cache~,
+which git ignores.
+
 ** A site
 
 A site is a folder, and a URL is a path in it:
@@ -114,10 +128,13 @@ commands of its own.
 
 #+BEGIN_SRC text
 bjo run tests/site.bjo
+bjo run tests/example.bjo
 #+END_SRC
 
 The site in ~tests/site~ is copied to ~tests/cache/~ and changed there: URLs,
 pages, menus, the include rule, the cache, and the server over HTTP.
+~tests/example.bjo~ makes every page of the example site, so that it keeps
+working.
 
 ** What it needs
 

@@ -5,6 +5,6 @@
 *.bjobuild
 *.runtimeconfig.json
 *.deps.json
-# What the tests generate, and glasnost run on the test site.
+# What the tests generate, and glasnost run on the test site or the example.
 tests/cache/
-tests/site/_cache/
+_cache/

@@ -1,0 +1,16 @@
+(meta (title "Bread, a plain loaf"))
+
+@read-list{
+- 5 dl water, lukewarm
+- 25 g fresh yeast
+- 2 tsp salt
+- about 12 dl flour
+}
+
+@itemlist[#:style ordered]{
+  @item{Stir the yeast into the water, then the salt.}
+  @item{Work in flour until the dough lets go of the bowl.}
+  @item{Let it rise, covered, for an hour.}
+  @item{Shape a loaf, let it rise for half an hour more, and bake it at
+  225 °C for about 35 minutes.}
+}

@@ -1,0 +1,38 @@
+(meta (title "Made when read, kept until changed")
+      (date 2026-09-24))
+
+Nothing here was built beforehand. The first time a page is asked for,
+glasnost reads its @code{.sz}, makes the HTML, and keeps it. After that it
+serves what it kept, until something the page was made from changes.
+
+@toc
+
+@section{What a page is made from}
+
+Beside each kept page is a list of the files it was made from: its own
+@code{.sz}, and everything that includes, like the last lines of this note. A
+folder's page is made from the folder itself, its @code{index.sz}, and
+everything its menu says something about. When any of them has been written
+since the page was made, or is gone, the page is made again.
+
+@section{What made it}
+
+The pages are kept in a folder named by a fingerprint of the code that made
+them: glasnost, samizdat, and what they use. A glasnost built from other code
+keeps its pages somewhere else, and so never serves a page that older code
+made. When it starts, it removes the caches older code left behind.
+
+@section{When it cannot}
+
+A page that cannot be made --- a command that does not exist, an include that
+is not hidden --- is not kept. It is answered with a page that says what went
+wrong and where, as samizdat said it:
+
+@codeblock|{
+notes/broken.sz:3:11: @nosuchcommand: there is no such command
+}|
+
+Because of @ref["what-a-page-is-made-from"]{the list of sources}, fixing the
+file fixes the page: the next time it is read, it is made again.
+
+@include["../_parts/signature.sz"]

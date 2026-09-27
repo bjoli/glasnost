@@ -1,0 +1,23 @@
+(meta (title "Markdown, where it is quicker")
+      (date 2026-09-26))
+
+Some things are quicker to write in Markdown, and samizdat reads it, into the
+same tree as the rest of the page:
+
+@markdown|{
+A *list* of things, with a [link](menus.html):
+
+- [x] tables and task lists,
+- [ ] and footnotes,[^1] numbered with the page's own.
+
+[^1]: Like this one.
+}|
+
+A whole file of Markdown can be included too. The section below is
+@code{_imported.md}, beside this note. Its name begins with @code{_}: a
+@code{.md} that is not hidden would be in the menu as well, and served as it
+is.
+
+@include-markdown["_imported.md"]
+
+@include["../_parts/signature.sz"]

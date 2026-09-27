@@ -1,0 +1,5 @@
+@hr
+
+This note is in @code{examples/site/notes/}, in glasnost's repository. These
+last lines are not: they are @code{_parts/signature.sz}, which every note
+includes at its end.

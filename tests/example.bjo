@@ -1,0 +1,111 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/tests/example.bjo — the example site, every page of it.
+;;
+;;     bjo run tests/example.bjo
+;;
+;; Every folder and page in examples/site is made, and each must be made
+;; without an error; then a few of them are looked at. The site is only read:
+;; its pages are kept in tests/cache/example.
+
+(import (std prelude))
+(import (std simpletest))
+(import (glasnost site))
+(import (only (glasnost index) hidden-name? page-stem))
+
+(import/extern
+  (name-in-folder (: System.IO.Path.GetFileName (-> string string))))
+
+(: root string)
+(def root (path-absolute "examples/site"))
+
+;; The URL of the folder `dir`, which is at `url`, and of every page and
+;; folder under it that is not hidden.
+(: urls-under (-> string string (Vec string)))
+(defun (urls-under dir url)
+  (def pages (loop (:for f (directory-files dir))
+                   (:let name (name-in-folder f))
+                   (:when (and (string-ends-with? name ".sz")
+                               (not (= name "index.sz"))
+                               (not (hidden-name? name))))
+                   (:acc (vecing (str url (page-stem name) ".html")))))
+  (def folders (loop (:for d (directory-subdirectories dir))
+                     (:let name (name-in-folder d))
+                     (:when (not (hidden-name? name)))
+                     (:acc all (folding (vec-empty) (vec-merge all (urls-under d (str url name "/")))))))
+  (vec-merge (vec-insert pages 0 url) folders))
+
+(: html-at (-> Site string string))
+(defun (html-at site path)
+  (match (target-html site (resolve site path))
+    ((Ok html) html)
+    ((Err e) (str "error: " e))))
+
+(: made (-> Site string string))
+(defun (made site path)
+  (match (target-html site (resolve site path))
+    ((Ok html) "made")
+    ((Err e) e)))
+
+(: missing? (-> Site string bool))
+(defun (missing? site path)
+  (match (resolve site path)
+    (Missing #t)
+    (_ #f)))
+
+;; Whether the texts come in `html` in this order, every one of them.
+(: in-order? (-> string (Vec string) bool))
+(defun (in-order? html texts)
+  (>= (loop (:for t texts)
+            (:acc at (folding 0 (let ((p (.IndexOf html t)))
+                                  (if (or (< at 0) (< p at)) (- 0 1) p)))))
+      0))
+
+(: check-example #:sync (-> int))
+(defun (check-example)
+  (def work (path-absolute "tests/cache/example"))
+  (when (directory-exists? work) (directory-delete-tree work))
+  (def site (make-site root #:cache work))
+  (def urls (urls-under root "/"))
+
+  ;; --- every page ---------------------------------------------------------
+  (expect "four folders and nine pages" (vec-length urls) 13)
+  (loop (:for url urls)
+        (:do (expect (str "made: " url) (made site url) "made")))
+
+  ;; --- a few of them ------------------------------------------------------
+  (def front (html-at site "/"))
+  (expect-true "the front page includes a hidden part"
+               (string-contains? front "<a href=\"notes/\">Notes</a>, on how glasnost works"))
+  (expect-true "and has the site's style sheet"
+               (string-contains? front "href=\"/_resources/glasnost.css\""))
+  (expect-true "notes, newest first"
+               (in-order? (html-at site "/notes/")
+                          [">Markdown, where it is quicker<" ">Lists and tables<"
+                           ">Made when read, kept until changed<" ">Folders are menus<"
+                           ">Writing a page<"]))
+  (expect-true "recipes, by title"
+               (in-order? (html-at site "/recipes/")
+                          [">Bread, a plain loaf<" ">Pancakes, thin<" ">Yellow pea soup<"]))
+  (expect-true "files, by name"
+               (in-order? (html-at site "/files/") [">glasnost.svg<" ">hello.bjo<" ">readme.txt<"]))
+  (expect-true "every note ends with the signature"
+               (string-contains? (html-at site "/notes/menus.html") "<code>_parts/signature.sz</code>"))
+  (expect-true "Markdown included from a hidden file"
+               (string-contains? (html-at site "/notes/markdown.html") "<h2 id=\"imported\">Imported</h2>"))
+  (expect-true "a reference to a section further down"
+               (string-contains? (html-at site "/notes/the-cache.html")
+                                 "<a href=\"#what-a-page-is-made-from\">the list of sources</a>"))
+  (expect-true "the draft is not found" (missing? site "/_drafts/unfinished.html"))
+  (expect-true "nor is the Markdown file" (missing? site "/notes/_imported.md"))
+  (expect-true "nor a part" (missing? site "/_parts/signature.html"))
+  0)
+
+(defbjo (main args)
+  (match (sync (blocking (fun () (check-example))))
+    ((Ok code) code)
+    ((Err e)
+     (println (str "FAILURE: the checks raised " (.-Message e)))
+     1)))

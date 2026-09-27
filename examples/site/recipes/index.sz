@@ -1,0 +1,5 @@
+(meta (title "Recipes") (sort title))
+
+Sorted by title, A to Z, because this folder's @code{index.sz} says
+@code{(sort title)}. None of them has a date, so each is dated by when its
+file was last written.

@@ -1,0 +1,4 @@
+(meta (title "Notes"))
+
+How glasnost works, a note at a time. The newest is first, which is how a
+folder is sorted when its @code{index.sz} says nothing about it.

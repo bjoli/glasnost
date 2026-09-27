@@ -1,0 +1,37 @@
+(meta (title "Folders are menus")
+      (date 2026-09-22))
+
+A folder's page is its @code{index.sz}, if it has one, and then a menu: a line
+for each thing in the folder, with its title, a @code{/} after a folder's, and
+its date on the right. A page's line says what its @code{(meta ...)} says, and
+a folder's what its @code{index.sz} says. Anything else --- a picture, a text
+file --- is listed by its name, and dated by when it was last written.
+
+@section{The order}
+
+Folders come first. The rest are newest first, unless the folder's
+@code{index.sz} says otherwise:
+
+@codeblock|{
+(meta (title "Recipes") (sort title))     ; A to Z
+(meta (sort date ascending))              ; oldest first
+(meta (sort name descending))             ; by file name, Z to A
+}|
+
+@link["../recipes/"]{Recipes} is sorted by title, and
+@link["../files/"]{Files} by name. This folder says nothing, and so is newest
+first. A date that cannot be read as one, and so cannot be sorted by, comes
+last.
+
+@section{Hidden things}
+
+A name that begins with @code{_} or @code{.} is left out of the menu, and no
+URL reaches it: @link["../_drafts/unfinished.html"]{this draft} is not found.
+The pieces of pages that others include are kept that way, in @code{_parts}.
+@code{@"@"include} refuses a file that is not hidden, which would be a page of
+its own as well.
+
+@code{_resources} is the one hidden folder whose files are served, for the
+site's style sheet and what it uses.
+
+@include["../_parts/signature.sz"]

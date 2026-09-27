@@ -1,0 +1,7 @@
+;; A file that is not a page, which glasnost serves as it is, as text.
+
+(import (std prelude))
+
+(defun (main args)
+  (println "hello, from a file in a menu")
+  0)

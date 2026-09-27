@@ -1,0 +1,41 @@
+(meta (title "Lists and tables")
+      (date 2026-09-25))
+
+A list can be written the way Markdown or Org writes one, nested by how far
+an item is indented:
+
+@read-list{
+- flour, water and salt;
+- yeast,
+  - fresh,
+  - or dried;
+- and time.
+}
+
+or command by command, which is how a numbered one is asked for:
+
+@itemlist[#:style ordered]{
+  @item{Mix.}
+  @item{Wait.}
+  @item{Bake.}
+}
+
+A table is written as Org writes one. A rule under the first row makes it the
+head, and a column that is mostly numbers is set to the right:
+
+@read-table[#:caption "Pancakes, for four"]{
+| Ingredient | Amount | Unit |
+|------------+--------+------|
+| flour      |    2.5 | dl   |
+| milk       |      6 | dl   |
+| eggs       |      3 |      |
+| salt       |    0.5 | tsp  |
+}
+
+And a quotation:
+
+@blockquote{
+  The whole recipe is on @link["../recipes/pancakes.html"]{its own page}.
+}
+
+@include["../_parts/signature.sz"]

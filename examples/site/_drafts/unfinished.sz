@@ -1,0 +1,4 @@
+(meta (title "Not yet"))
+
+A draft. Its folder's name begins with @code{_}, so it is in no menu, and
+@code{/_drafts/unfinished.html} is not found.
