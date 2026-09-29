@@ -6,11 +6,11 @@
 
   (depends
     (package (name (bjoweb))
-             (version (version-at-least "0.3.0"))
+             (version (version-at-least "0.5.0"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
     ;; 0.3.0 says what files a document was made from.
     (package (name (samizdat))
-             (version (version-at-least "0.3.0"))
+             (version (version-at-least "0.4.0"))
              (source (git (url "https://github.com/bjoli/samizdat")))))
 
   ;; A program: src/main.bjo.

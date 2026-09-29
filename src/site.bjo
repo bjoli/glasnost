@@ -169,10 +169,10 @@
 ;; What a URL is. A page: its .sz, where it is kept, and the URL's parts. A
 ;; folder: the folder, where its page is kept, and the URL's parts. A file
 ;; served as it is. A redirect: where to.
-(type (: Target (Union (Page string string (Vec string))
-                       (Folder string string (Vec string))
-                       (Asset string)
-                       (Redirect string)
+(type (: Target (Union (: Page string string (Vec string))
+                       (: Folder string string (Vec string))
+                       (: Asset string)
+                       (: Redirect string)
                        Missing)))
 
 (: nul string)
