@@ -34,7 +34,7 @@
 (export
   Site Target
   make-site site-root site-cache site-commands
-  resolve target-html message-page
+  resolve target-file target-html message-page
   clear-old-caches! asset-type hidden-path?)
 
 (import (std prelude))
@@ -291,16 +291,17 @@
 
 (type (: Made (Alias (Result string (Tuple string (Vec string))))))
 
+;; The kept page, made and kept first when it is not fresh: where it is.
 (: kept-or-made #:sync (-> string (-> Made) (Result string string)))
 (defun (kept-or-made kept make)
   (if (fresh? kept)
-      (Ok (file-read-text kept))
+      (Ok kept)
       (let ((started utc-now))
         (match (make)
           ((Err e) (Err e))
           ((Ok (Tuple html sources))
            (store! kept html sources started)
-           (Ok html))))))
+           (Ok kept))))))
 
 ;; A message with the files in it named from the site's folder: a reader of
 ;; the page that says what went wrong is told `notes/x.sz:3:11`, and not
@@ -310,17 +311,29 @@
   (def root (record-ref site root))
   (string-replace (string-replace message (str root "/") "") (str root "\\") ""))
 
-;; The HTML for a page or a folder: kept, when it is fresh, and otherwise
-;; made and kept. What cannot be made is the reason why, and nothing is kept.
-(: target-html #:sync (-> Site Target (Result string string)))
-(defun (target-html site target)
+;; Where the HTML for a page or a folder is kept: kept already, when it is
+;; fresh, and otherwise made and kept now. What cannot be made is the reason
+;; why, and nothing is kept.
+;;
+;; A server sends the file as it is, and never holds the page as text: a big
+;; page read into a string and encoded again is a few megabytes of garbage a
+;; request.
+(: target-file #:sync (-> Site Target (Result string string)))
+(defun (target-file site target)
   (def made (match target
               ((Page sz kept parts) (kept-or-made kept (fun () (make-page site sz parts))))
               ((Folder dir kept parts) (kept-or-made kept (fun () (make-folder site dir parts))))
               (_ (Err "only a page or a folder is made"))))
   (match made
-    ((Ok html) (Ok html))
+    ((Ok kept) (Ok kept))
     ((Err why) (Err (from-site site why)))))
+
+;; The HTML itself.
+(: target-html #:sync (-> Site Target (Result string string)))
+(defun (target-html site target)
+  (match (target-file site target)
+    ((Ok kept) (Ok (file-read-text kept)))
+    ((Err why) (Err why))))
 
 ;; ---------------------------------------------------------------------------
 ;; Making pages

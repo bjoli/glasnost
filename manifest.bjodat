@@ -5,9 +5,10 @@
   (license "MPL-2.0")
 
   (depends
-    ;; 0.5.1 says in one line that the port is taken.
+    ;; 0.5.1 says in one line that the port is taken; 0.6.0 sends a file from
+    ;; the disk, which a kept page and an asset are answered with.
     (package (name (bjoweb))
-             (version (version-at-least "0.5.1"))
+             (version (version-at-least "0.6.0"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
     ;; 0.3.0 says what files a document was made from.
     ;; 0.5.0: a code block is coloured when the HTML converter is given a

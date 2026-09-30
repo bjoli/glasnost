@@ -118,7 +118,9 @@ everything that included; for a folder, the folder itself and everything its
 menu says something about; and the site's ~index.sz~ and style sheet, which
 every page shows something of. The page is made again when one of them has
 been written since it was made, or is gone. A page is written beside where it
-goes and moved there, so that a reader never gets half of one.
+goes and moved there, so that a reader never gets half of one. A kept page is
+sent from its file as it is, as any other file is, and never read into memory
+whole.
 
 A page that cannot be made is answered 500, with what samizdat said — the
 file, the line, the command — and is not kept.
@@ -148,12 +150,12 @@ working.
 
 ** What it needs
 
-[[https://github.com/bjoli/bjoweb][bjoweb]] 0.5.1 or later, which says in one line when the port is taken;
+[[https://github.com/bjoli/bjoweb][bjoweb]] 0.6.0 or later, which sends a file from the disk;
 samizdat 0.5.0 or later, which colours code when it is given a highlighter;
 and [[https://rikspucko.koketteriet.se/bjoli/textmate-bjolang][textmate-bjolang]] 0.1.0 or later, the highlighter. samizdat's Markdown
-comes from Markdig, and the highlighter from
-TextMateSharp, which brings a native Oniguruma for the grammars' regular
-expressions. Both come through NuGet, so building needs the ~dotnet~ SDK.
+comes from Markdig, and the highlighter from TextMateSharp, which brings a
+native Oniguruma for the grammars' regular expressions. Both come through
+NuGet, so building needs the ~dotnet~ SDK.
 
 ** License
 

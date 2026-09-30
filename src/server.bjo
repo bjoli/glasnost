@@ -30,19 +30,17 @@
 (import (glasnost site))
 (import (glasnost layout))
 
-(import/extern
-  (read-bytes (: System.IO.File.ReadAllBytes (-> string (Array byte)))))
-
-;; The answer to a GET for `path`.
+;; The answer to a GET for `path`. A page and a file are both sent from the
+;; disk as they are, a piece at a time, by bjoweb.
 (: answer #:sync (-> Site string Response))
 (defun (answer site path)
   (match (resolve site path)
     (Missing (html (message-page site "Not found" (str path " is not here.")) #:status 404))
     ((Redirect to) (redirect to))
-    ((Asset file) (binary (read-bytes file) #:content-type (asset-type file)))
+    ((Asset asset) (file asset #:content-type (asset-type asset)))
     (target
-     (match (target-html site target)
-       ((Ok page) (html page))
+     (match (target-file site target)
+       ((Ok kept) (file kept #:content-type "text/html; charset=utf-8"))
        ((Err why) (html (message-page site "This page could not be made" why) #:status 500))))))
 
 ;; What is said when the work itself raised: a file that could not be read or
