@@ -91,14 +91,24 @@ menu. The type is the browser's own: the style sheet sets colours, a column
 and some space, and nothing about fonts. It follows the reader's light or
 dark preference. There is no JavaScript.
 
+Code is coloured when glasnost knows its language — ~@codeblock[#:lang
+"python"]~, or a Markdown fence that says ~python~ — by its name, an alias,
+or a file extension. The languages are the ones VS Code comes with, which
+TextMateSharp brings, and Bjolang; a block in any other is plain. The code is
+written with class names, ~tm-comment~, ~tm-keyword-control~ and so on, and
+the style sheet colours them as VS Code does: Light+ for a reader who prefers
+light, Dark+ for one who prefers dark. It sets only colours, since a theme's
+bold and italic are fonts.
+
 ~_resources/glasnost.css~, when there is one, comes after the built-in style
-sheet and may change anything — a font included.
+sheet and may change anything — a font included, or the colours of code.
 
 ** The cache
 
 Pages are kept in ~DIR/<fingerprint>~, ~SITE/_cache~ unless ~--cache~ says
 otherwise. The fingerprint is a hash of the code that makes the pages — the
-program, samizdat, Markdig, glasnost itself — so a glasnost built from other
+program, samizdat, Markdig, the highlighter, glasnost itself — so a glasnost
+built from other
 code keeps its pages somewhere else, and never serves a page the old code
 made. The caches of older code are removed when glasnost starts; a folder
 there that is not named as a cache is left alone.
@@ -115,11 +125,11 @@ file, the line, the command — and is not kept.
 
 ** The modules
 
-| ~(glasnost site)~        | URLs, the cache, making pages; the ~@include~ a site has |
-| ~(glasnost index)~       | what a folder's menu lists, and in what order          |
-| ~(glasnost layout)~      | the page around it all, and its style sheet            |
-| ~(glasnost server)~      | a bjoweb router for a site                             |
-| ~(glasnost fingerprint)~ | the hash of the code                                   |
+| ~(glasnost site)~        | URLs, the cache, making pages; the ~@include~ a site has    |
+| ~(glasnost index)~       | what a folder's menu lists, and in what order               |
+| ~(glasnost layout)~      | the page around it all, its style sheet, and code's colours |
+| ~(glasnost server)~      | a bjoweb router for a site                                  |
+| ~(glasnost fingerprint)~ | the hash of the code                                        |
 
 ~make-site~ takes ~#:commands~, merged over samizdat's, for a site that wants
 commands of its own.
@@ -138,9 +148,11 @@ working.
 
 ** What it needs
 
-[[https://github.com/bjoli/bjoweb][bjoweb]] 0.3.0 or later, and samizdat 0.3.0 or later, which says what
-files a document was made from. samizdat's Markdown comes from Markdig,
-through NuGet, so building needs the ~dotnet~ SDK.
+[[https://github.com/bjoli/bjoweb][bjoweb]] 0.5.0 or later; samizdat 0.5.0 or later, which colours code when it
+is given a highlighter; and [[https://rikspucko.koketteriet.se/bjoli/textmate-bjolang][textmate-bjolang]] 0.1.0 or later, the
+highlighter. samizdat's Markdown comes from Markdig, and the highlighter from
+TextMateSharp, which brings a native Oniguruma for the grammars' regular
+expressions. Both come through NuGet, so building needs the ~dotnet~ SDK.
 
 ** License
 

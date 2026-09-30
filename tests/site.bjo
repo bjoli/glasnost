@@ -138,6 +138,10 @@
                (in-order? about ["<style>" "<link rel=\"stylesheet\" href=\"/_resources/glasnost.css\">"]))
   (expect-true "no font is set" (not (string-contains? about "font")))
   (expect-true "dark when the reader prefers it" (string-contains? about "prefers-color-scheme: dark"))
+  (expect-true "code in Light+ for a reader who prefers light"
+               (string-contains? about "@media (prefers-color-scheme: light) {\npre.tm .tm-comment{color:#008000}"))
+  (expect-true "and in Dark+ for one who prefers dark"
+               (string-contains? about "@media (prefers-color-scheme: dark) {\npre.tm .tm-comment{color:#6A9955}"))
   (expect-true "no script" (not (string-contains? about "<script")))
   (expect-true "a page with no meta is called by its name"
                (string-contains? (html-at site "/plain.html") "<h1>plain</h1>"))

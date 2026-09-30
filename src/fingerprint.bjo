@@ -5,9 +5,9 @@
 ;; glasnost/src/fingerprint.bjo — the module (glasnost fingerprint).
 ;;
 ;; What a cached page depends on besides its sources is the code that made it:
-;; the commands, the layout, samizdat, Markdig. The cache is kept under a
-;; name made from that code, so that a change to any of it starts a fresh
-;; cache rather than serving pages the old code made.
+;; the commands, the layout, samizdat, Markdig, the highlighter. The cache is
+;; kept under a name made from that code, so that a change to any of it starts
+;; a fresh cache rather than serving pages the old code made.
 ;;
 ;; The fingerprint is a hash of the module version id of every assembly the
 ;; program can run, found by following references from the program's own

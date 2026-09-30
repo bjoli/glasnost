@@ -91,6 +91,10 @@
                           [">Bread, a plain loaf<" ">Pancakes, thin<" ">Yellow pea soup<"]))
   (expect-true "files, by name"
                (in-order? (html-at site "/files/") [">glasnost.svg<" ">hello.bjo<" ">readme.txt<"]))
+  (expect-true "a file shown on a page, its code coloured by class"
+               (in-order? (html-at site "/files/")
+                          ["<pre class=\"tm\"><code class=\"language-bjolang\">"
+                           "<span class=\"tm-storage tm-storage-type\">defun</span>"]))
   (expect-true "every note ends with the signature"
                (string-contains? (html-at site "/notes/menus.html") "<code>_parts/signature.sz</code>"))
   (expect-true "Markdown included from a hidden file"

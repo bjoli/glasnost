@@ -36,7 +36,9 @@ typed: @code{"straight" -- quotes}.}
 - @em{emphasis}, @strong{strong}, @code{code} and @link["menus.html"]{links};
 - sections, which are the headings of a page, below its title;
 - footnotes, which go to the end;
-- code blocks, lists, @link["lists-and-tables.html"]{tables} and quotations;
+- code blocks, coloured when glasnost knows their language, as
+  @link["../files/"]{the files} show one;
+- lists, @link["lists-and-tables.html"]{tables} and quotations;
 - @link["markdown.html"]{Markdown}, where it is quicker;
 - @code{@"@"include}, for a piece of a page kept in a file of its own.
 }

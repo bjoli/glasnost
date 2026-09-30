@@ -14,19 +14,57 @@
 ;; light or dark preference. A site's `_resources/glasnost.css` comes after
 ;; it, and may change anything, a font included.
 ;;
+;; Code is coloured by class names, which `page-html` writes a document's
+;; code blocks with, and the colours are two of VS Code's themes: Light+ for a
+;; reader who prefers light, Dark+ for one who prefers dark.
+;;
 ;; There is no JavaScript.
 
-(export Crumb page-layout builtin-css)
+(export Crumb page-layout builtin-css page-html)
 
 (import (std prelude))
-(import (only (samizdat html) escape-html escape-attribute))
+(import (only (samizdat html) html-options escape-html escape-attribute))
+(import (only (textmate-bjolang core) highlighter highlighter-css))
 
 ;; One step of the path line: what it says, and where it goes — "" for the
 ;; last one, which is the page itself and not a link.
 (type (: Crumb (Alias (Tuple string string))))
 
-(: builtin-css string)
-(def builtin-css
+;; What colours code, by class; built once, since reading grammars is slow.
+;; Light+'s, although for classes the theme only matters to the style sheet.
+(: code-highlighter TmHighlighter)
+(def code-highlighter (highlighter #:theme 'light-plus))
+
+;; A theme's colours for the classes, under pre.tm. Only the colours: the
+;; first rule, the <pre>'s own colours, is left to the style sheet around it,
+;; and a theme's bold and italic go with everything else about fonts.
+(: code-colours (-> TmHighlighter string))
+(defun (code-colours hl)
+  (def rules (vec-remove-at (string-split (highlighter-css hl #:selector "pre.tm") "\n") 0))
+  (string-join
+    (loop (:for rule rules)
+          (:let halves (string-split (string-replace rule "}" "") "{"))
+          (:let colours (vec-filter (fun (d) (string-starts-with? d "color:"))
+                                    (string-split (vec-ref halves 1) ";")))
+          (:when (not (vec-empty? colours)))
+          (:acc (vecing (str (vec-ref halves 0) "{" (string-join colours ";") "}"))))
+    "\n"))
+
+;; The colours of code: Light+ for a reader who prefers light, Dark+ for one
+;; who prefers dark.
+(: code-css string)
+(def code-css
+  (str "@media (prefers-color-scheme: light) {\n" (code-colours code-highlighter) "\n}\n"
+       "@media (prefers-color-scheme: dark) {\n" (code-colours (highlighter #:theme 'dark-plus)) "\n}"))
+
+;; How a document is written: its code blocks coloured by class, for the
+;; colours above.
+(: page-html Html)
+(def page-html (html-options #:highlighter (Some code-highlighter) #:highlight-style 'classes))
+
+;; Colours, a column and some space, light and dark.
+(: page-css string)
+(def page-css
   (string-join
    [":root {"
     "  color-scheme: light dark;"
@@ -63,6 +101,10 @@
     "section.notes { margin-top: 2rem; border-top: 1px solid var(--rule); }"
     "p.error { white-space: pre-wrap; }"]
    "\n"))
+
+;; What every page's <style> says.
+(: builtin-css string)
+(def builtin-css (str page-css "\n" code-css))
 
 ;; The path line: each step a link but the last, with a slash between.
 (: path-line (-> (Vec Crumb) string))

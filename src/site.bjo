@@ -381,7 +381,7 @@
         (Ok (Tuple (page-layout #:title title
                                 #:date date
                                 #:crumbs (crumbs-for (record-ref around name) parts)
-                                #:content (document->html doc)
+                                #:content (document->html doc #:with page-html)
                                 #:stylesheet (record-ref around stylesheet))
                    (distinct (vec-merge (record-ref doc sources) (record-ref around sources))))))))))
 
@@ -397,7 +397,7 @@
 ;; A folder's page: its index.sz, when it has one, and its menu. The menu is
 ;; made again when the folder changes — something comes or goes — and when
 ;; anything it lists does.
-(: folder-page (-> Site string (Vec string) (Option Document) Made))
+(: folder-page #:sync (-> Site string (Vec string) (Option Document) Made))
 (defun (folder-page site dir parts index)
   (match (sorting-of index)
     ((Err e) (Err (str (path-combine dir "index.sz") ": " e)))
@@ -419,7 +419,7 @@
                              #:date date
                              #:crumbs (crumbs-for (record-ref around name) parts)
                              #:content (match index
-                                         ((Some doc) (document->html doc))
+                                         ((Some doc) (document->html doc #:with page-html))
                                          (None ""))
                              #:menu (blocks->html default-html (menu-blocks entries))
                              #:stylesheet (record-ref around stylesheet))

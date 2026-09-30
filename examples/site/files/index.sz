@@ -5,3 +5,7 @@ and served as it is, with a type by its extension. This folder is sorted by
 name.
 
 @image["glasnost.svg" #:alt "Three lines, as a menu has"]
+
+A page can show a file, too, and its code is coloured by its language:
+
+@codeblock[#:lang "bjolang" #:file "hello.bjo"]
