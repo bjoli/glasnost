@@ -13,8 +13,10 @@
     ;; 0.3.0 says what files a document was made from.
     ;; 0.5.0: a code block is coloured when the HTML converter is given a
     ;; highlighter.
+    ;; 0.6.0: @defmodule, @defdoc, @defdocs and @docref show a Bjolang
+    ;; module's own docs, read from its dll.
     (package (name (samizdat))
-             (version (version-at-least "0.5.0"))
+             (version (version-at-least "0.6.0"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; The highlighter, and the style sheet for its classes. samizdat brings
     ;; it too; it is named here because the layout uses it itself.
