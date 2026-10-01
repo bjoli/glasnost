@@ -84,6 +84,15 @@ Folders come first, then the rest, newest first — or as the folder's
 A date sorts only when it can be read as one. What has no value for the key
 comes last, by name.
 
+A folder whose ~index.sz~ is the whole page says so, and has no menu:
+
+#+BEGIN_SRC text
+(meta (title "The manual") (listing? #f))
+#+END_SRC
+
+What is in it is still served, and a page in it can still be linked to; it
+is only not listed. ~(listing? #t)~ is what saying nothing means.
+
 ** How it looks
 
 A path at the top, each step a link; the title and the date; the page; the

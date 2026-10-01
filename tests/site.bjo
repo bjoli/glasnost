@@ -191,6 +191,24 @@
                (string-contains? dated "<span class=\"date\">someday</span>"))
   (expect-true "a folder's date in its line" (string-contains? dated "<span class=\"date\">2019-01-01</span>"))
   (directory-create (path-combine root "weird"))
+  ;; (listing? #f): the index.sz is the whole page.
+  (directory-create (path-combine root "quiet"))
+  (rewrite! "quiet/index.sz" "(meta (title \"Quiet\") (listing? #f))\n\nJust this.")
+  (rewrite! "quiet/hidden-in-plain-sight.sz" "(meta (title \"Not listed\"))\n\nHere.")
+  (def quiet (html-at site "/quiet/"))
+  (expect-true "(listing? #f) shows the index.sz" (string-contains? quiet "Just this."))
+  (expect "and no menu" (string-contains? quiet "<div class=\"menu\">") #f)
+  (expect "so the folder's pages are not listed" (string-contains? quiet "Not listed") #f)
+  (expect "though they are still served"
+          (string-contains? (html-at site "/quiet/hidden-in-plain-sight.html") "Here.")
+          #t)
+  (rewrite! "quiet/index.sz" "(meta (title \"Quiet\") (listing? #t))\n\nJust this.")
+  (expect-true "(listing? #t) lists, as saying nothing does"
+               (string-contains? (html-at site "/quiet/") "Not listed"))
+  (rewrite! "quiet/index.sz" "(meta (listing? no))")
+  (expect-true "a (listing? ...) that is not #t or #f"
+               (string-contains? (html-at site "/quiet/") "(listing? ...) is #t or #f"))
+
   (rewrite! "weird/index.sz" "(meta (sort size))")
   (expect-true "a (sort ...) that makes no sense"
                (string-contains? (html-at site "/weird/") "the key is date, title or name"))

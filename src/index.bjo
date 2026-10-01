@@ -26,11 +26,14 @@
 ;;
 ;; A date sorts by a key only when it can be read as one; an entry without
 ;; the key goes after those with it, by name.
+;;
+;; `(meta (listing? #f))` leaves the menu out: the folder's page is its
+;; index.sz and nothing more.
 
 (export
   MenuEntry Sorting
   ;; The folder, and its (meta ...).
-  folder-entries sorting-of sort-entries menu-blocks
+  folder-entries sorting-of listing-of sort-entries menu-blocks
   ;; What a document is called, and when it is from.
   read-meta describe meta-date
   ;; Names and times.
@@ -265,6 +268,19 @@
        ((Some (Cons key Nil)) (sorting-from (word-of key) None))
        ((Some (Cons key (Cons order Nil))) (sorting-from (word-of key) (Some (word-of order))))
        ((Some other) (Err "(sort ...) is a key — date, title or name — and perhaps ascending or descending"))))))
+
+;; Whether the folder's page lists what is in it: `(listing? #f)` in its
+;; index.sz says not, for a folder whose index.sz is the whole page. Listed
+;; unless it says.
+(: listing-of (-> (Option Document) (Result string bool)))
+(defun (listing-of doc)
+  (match doc
+    (None (Ok #t))
+    ((Some d)
+     (match (meta-values d "listing?")
+       (None (Ok #t))
+       ((Some (Cons (BjoBool b) Nil)) (Ok b))
+       ((Some other) (Err "(listing? ...) is #t or #f"))))))
 
 (: compare-names (-> MenuEntry MenuEntry int))
 (defun (compare-names a b)

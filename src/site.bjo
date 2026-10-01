@@ -407,16 +407,19 @@
         ((Ok doc) (folder-page site dir parts (Some doc))))
       (folder-page site dir parts None)))
 
-;; A folder's page: its index.sz, when it has one, and its menu. The menu is
-;; made again when the folder changes — something comes or goes — and when
-;; anything it lists does.
+;; A folder's page: its index.sz, when it has one, and its menu, unless the
+;; index.sz says `(listing? #f)`. The menu is made again when the folder
+;; changes — something comes or goes — and when anything it lists does; a
+;; page without one, only when its index.sz does.
 (: folder-page #:sync (-> Site string (Vec string) (Option Document) Made))
 (defun (folder-page site dir parts index)
-  (match (sorting-of index)
-    ((Err e) (Err (str (path-combine dir "index.sz") ": " e)))
-    ((Ok sorting)
+  (def where (path-combine dir "index.sz"))
+  (match (Tuple (sorting-of index) (listing-of index))
+    ((Tuple (Err e) _) (Err (str where ": " e)))
+    ((Tuple _ (Err e)) (Err (str where ": " e)))
+    ((Tuple (Ok sorting) (Ok listing))
      (def around (surroundings site))
-     (def entries (sort-entries sorting (folder-entries dir)))
+     (def entries (if listing (sort-entries sorting (folder-entries dir)) (vec-empty)))
      (def name (if (vec-empty? parts) (record-ref around name) (last-part parts)))
      (def title (match (describe index name (last-written dir))
                   ((Tuple t d s) t)))
@@ -436,7 +439,8 @@
                                          (None ""))
                              #:menu (blocks->html default-html (menu-blocks entries))
                              #:stylesheet (record-ref around stylesheet))
-                (distinct (vec-merge (vec-merge (vec-insert index-sources 0 dir) listed)
+                (distinct (vec-merge (vec-merge (if listing (vec-insert index-sources 0 dir) index-sources)
+                                                listed)
                                      (record-ref around sources))))))))
 
 ;; A page that says something went wrong, which is not kept: "Not found",
