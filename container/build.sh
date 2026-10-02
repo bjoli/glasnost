@@ -24,6 +24,11 @@ command -v "$bjo" >/dev/null || {
 
 (cd "$repo" && "$bjo" publish --whole-stdlib -o "$here/app")
 
+# The directories the image needs, copied in by the Containerfile: the base
+# image has no shell to make them with.
+rm -rf "$here/skel"
+mkdir -p "$here/skel/srv/glasnost/wwwroot" "$here/skel/cache" "$here/skel/site"
+
 # Inside a toolbox or distrobox there is usually no podman, but the host has
 # one and sees the same /home, so the published directory is where it expects
 # it. The host's podman gets a clean environment: the toolbox's (container=podman
