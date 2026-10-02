@@ -15,6 +15,6 @@
     (package (name (samizdat)) (version "0.7.0")
              (source (git (url "https://github.com/bjoli/samizdat")))
              (commit "5efb777f3303f74014a07e885992111c5bed8213"))
-    (package (name (textmate-bjolang)) (version "0.1.0")
+    (package (name (textmate-bjolang)) (version "0.1.1")
              (source (git (url "https://rikspucko.koketteriet.se/bjoli/textmate-bjolang")))
-             (commit "c499691376c77bbc0fbeede2f31c008071ce412a4a538090ddc810da45a78256"))))
+             (commit "e51b7170a9eb4ae406da609f3a4d4c1ebf4c3fb8bc6ba77278782f41006992ae"))))

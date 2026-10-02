@@ -1,0 +1,24 @@
+# glasnost, serving the site mounted at /site.
+#
+#   container/build.sh
+#   podman run -d --name site -p 8080:8080 \
+#       -v /path/to/site:/site:ro,Z -v glasnost-cache:/cache glasnost
+#
+# Pages are kept in /cache, so the site can be mounted read-only. Inside, it
+# listens on 8080; `podman run ... glasnost --port N` changes that.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+
+# What `bjo publish` made: the program and everything it loads.
+COPY app/ /app/
+
+# ASP.NET's content root is the working directory, and it makes a wwwroot
+# there if there is none — which a read-only folder would refuse.
+RUN mkdir -p /site /cache /srv/glasnost/wwwroot && chown app:app /cache
+
+WORKDIR /srv/glasnost
+USER app
+EXPOSE 8080
+VOLUME ["/cache"]
+
+ENTRYPOINT ["dotnet", "/app/main.exe", "/site", "--cache", "/cache", "--host", "0.0.0.0"]
+CMD ["--port", "8080"]

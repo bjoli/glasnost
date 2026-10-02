@@ -8,3 +8,6 @@
 # What the tests generate, and glasnost run on the test site or the example.
 tests/cache/
 _cache/
+# What container/build.sh publishes for the image, and bjo publish's default.
+container/app/
+publish/
