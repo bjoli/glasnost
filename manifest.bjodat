@@ -8,7 +8,7 @@
     ;; 0.5.1 says in one line that the port is taken; 0.6.0 sends a file from
     ;; the disk, which a kept page and an asset are answered with.
     (package (name (bjoweb))
-             (version (version-at-least "0.6.0"))
+             (version (version-at-least "0.6.1"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
     ;; 0.3.0 says what files a document was made from.
     ;; 0.5.0: a code block is coloured when the HTML converter is given a
@@ -17,14 +17,14 @@
     ;; module's own docs, read from its dll. 0.7.0: @generate-docs makes a
     ;; whole page of them.
     (package (name (samizdat))
-             (version (version-at-least "0.7.0"))
+             (version (version-at-least "0.7.1"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; The highlighter, and the style sheet for its classes. samizdat brings
     ;; it too; it is named here because the layout uses it itself. 0.1.1
     ;; declares its grammars as a resource, which bjo publish needs to copy
     ;; them into the container.
     (package (name (textmate-bjolang))
-             (version (version-at-least "0.1.1"))
+             (version (version-at-least "0.1.2"))
              (source (git (url "https://rikspucko.koketteriet.se/bjoli/textmate-bjolang")))))
 
   ;; A program: src/main.bjo.
