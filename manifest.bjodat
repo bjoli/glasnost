@@ -1,6 +1,6 @@
 (package
   (name (glasnost))
-  (version "0.3.3")
+  (version "0.3.4")
   (description "A site that is made as it is read: samizdat pages, generated when asked for and kept until their sources change; folders as menus, as Gopher had them.")
   (license "MPL-2.0")
 
