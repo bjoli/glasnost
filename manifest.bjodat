@@ -9,7 +9,7 @@
     ;; the disk, which a kept page and an asset are answered with. 0.6.2,
     ;; 0.7.2 and 0.1.3 below: Bjolang's strings are UTF-8.
     (package (name (bjoweb))
-             (version (version-at-least "0.6.2"))
+             (version (version-at-least "0.6.3"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
     ;; 0.3.0 says what files a document was made from.
     ;; 0.5.0: a code block is coloured when the HTML converter is given a
@@ -18,7 +18,7 @@
     ;; module's own docs, read from its dll. 0.7.0: @generate-docs makes a
     ;; whole page of them.
     (package (name (samizdat))
-             (version (version-at-least "0.7.2"))
+             (version (version-at-least "0.7.3"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; The highlighter, and the style sheet for its classes. samizdat brings
     ;; it too; it is named here because the layout uses it itself. 0.1.1
