@@ -78,16 +78,17 @@
     ((Folder dir kept parts) kept)
     (_ "")))
 
-(: position (-> string string int))
-(defun (position html text) (.IndexOf html text))
-
 ;; Whether the texts come in `html` in this order, every one of them.
 (: in-order? (-> string (Vec string) bool))
 (defun (in-order? html texts)
-  (>= (loop (:for t texts)
-            (:acc at (folding 0 (let ((p (position html t)))
-                                  (if (or (< at 0) (< p at)) (- 0 1) p)))))
-      0))
+  (match (loop (:for t texts)
+               (:acc at (folding (Some (string-cursor-start html))
+                                 (match (Tuple at (string-search html t))
+                                   ((Tuple (Some before) (Some p))
+                                    (if (string-cursor<? p before) None (Some p)))
+                                   (_ None)))))
+    ((Some _) #t)
+    (None #f)))
 
 (: rewrite! (-> string string void))
 (defun (rewrite! rel text) (file-write-text (path-combine root rel) text))
