@@ -10,7 +10,7 @@
     ;; 0.7.2 and 0.1.3 below: Bjolang's strings are UTF-8. 0.7.0: Bjolang's
     ;; one input port type.
     (package (name (bjoweb))
-             (version (version-at-least "0.7.0"))
+             (version (version-at-least "0.8.0"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
     ;; 0.3.0 says what files a document was made from.
     ;; 0.5.0: a code block is coloured when the HTML converter is given a
