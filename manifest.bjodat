@@ -19,9 +19,10 @@
     ;; module's own docs, read from its dll. 0.7.0: @generate-docs makes a
     ;; whole page of them. 0.8.1 closes every bracket it opens, which the
     ;; Bjolang reader requires. 0.8.2 generates docs without parking a
-    ;; fiber's thread.
+    ;; fiber's thread. 0.9.0 numbers headings with @numbered-headings, and
+    ;; links a generated reference's entries back up to its index.
     (package (name (samizdat))
-             (version (version-at-least "0.8.2"))
+             (version (version-at-least "0.9.0"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; The highlighter, and the style sheet for its classes. samizdat brings
     ;; it too; it is named here because the layout uses it itself. 0.1.1
