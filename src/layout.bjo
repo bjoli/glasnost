@@ -99,6 +99,14 @@
     "th, td { padding: .25rem .6rem; border-bottom: 1px solid var(--rule); }"
     "hr { border: 0; border-top: 1px solid var(--rule); }"
     "section.notes { margin-top: 2rem; border-top: 1px solid var(--rule); }"
+    ;; Numbered headings carry their numbers, so their table of contents
+    ;; needs no bullets.
+    ".toc.numbered ul { list-style: none; padding-left: 1.25rem; }"
+    ".toc.numbered > ul { padding-left: 0; }"
+    ;; A module's reference: the link back up to the index, at the right of
+    ;; the line that says what kind of definition it is.
+    ".doc-up { float: right; }"
+    ".doc-up a { text-decoration: none; }"
     "p.error { white-space: pre-wrap; }"]
    "\n"))
 
