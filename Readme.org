@@ -150,6 +150,7 @@ commands of its own.
 #+BEGIN_SRC text
 bjo run tests/site.bjo
 bjo run tests/example.bjo
+bjo run tests/toc.bjo
 #+END_SRC
 
 The site in ~tests/site~ is copied to ~tests/cache/~ and changed there: URLs,
