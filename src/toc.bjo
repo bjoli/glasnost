@@ -1,0 +1,111 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/src/toc.bjo — the module (glasnost toc).
+;;
+;; A heading that is in the table of contents gets a link back up to its own
+;; entry there. In a long page, such as a manual, a reader then gets from any
+;; section to the contents, at the place they left it.
+;;
+;; samizdat's @toc makes a `Div` of class "toc": lists whose items begin with a
+;; link to a heading's id. Each such item gets an `Anchor`, `toc--` and the
+;; id, and each heading it links to gets, at the end of its title, a link of
+;; class "toc-up" to that anchor. A samizdat id is a slug, which never has two
+;; dashes in a row, so no heading has an id that begins with `toc--`.
+;;
+;; Only the first table of contents gets anchors, because an id is in a page
+;; once. A heading that is not in it — deeper than its #:depth, or one of
+;; @section*'s, which have no id — gets no link. A page with no table of
+;; contents is as it was.
+
+(export link-headings-to-toc)
+
+(import (std prelude))
+(import (only (std hashset) list->hashset hashset-contains?))
+(import (samizdat doc))
+
+(: anchor-of (-> string string))
+(defun (anchor-of id) (str "toc--" id))
+
+(: toc-class? (-> string bool))
+(defun (toc-class? class) (any? (fun (word) (= word "toc")) (string-split class " ")))
+
+;; The id that an item's first link goes to, when it goes to one in the page.
+(: linked-id (-> (Vec Inline) (Option string)))
+(defun (linked-id xs)
+  (if (vec-empty? xs)
+      None
+      (match (vec-ref xs 0)
+        ((Link url _) (if (string-starts-with? url "#") (Some (.Substring url 1)) None))
+        (_ None))))
+
+;; The ids that the entries of a table of contents link to, at every level.
+(: entry-ids (-> (Vec Block) (List string)))
+(defun (entry-ids blocks)
+  (loop (:for b blocks)
+        (:acc out (folding Nil
+                    (list-append out
+                      (match b
+                        ((Para xs) (match (linked-id xs) ((Some id) (list id)) (None Nil)))
+                        ((ItemList _ _ items)
+                         (loop (:for item items) (:acc ids (folding Nil (list-append ids (entry-ids item))))))
+                        ((Div _ inner) (entry-ids inner))
+                        (_ Nil)))))))
+
+;; The entries of the first table of contents among `blocks`, at any depth.
+(: first-toc (-> (Vec Block) (Option (List string))))
+(defun (first-toc blocks)
+  (loop (:for b blocks)
+        (:acc found (folding None
+                      (match found
+                        ((Some _) found)
+                        (None
+                         (match b
+                           ((Div class inner) (if (toc-class? class) (Some (entry-ids inner)) (first-toc inner)))
+                           ((Quote inner) (first-toc inner))
+                           (_ None))))))))
+
+;; A table of contents, each entry with an anchor before its link.
+(: anchored (-> Block Block))
+(defun (anchored b)
+  (match b
+    ((Para xs)
+     (match (linked-id xs)
+       ((Some id) (Para (vec-insert xs 0 (Anchor (anchor-of id)))))
+       (None b)))
+    ((ItemList numbered start items) (ItemList numbered start (vec-map (fun (item) (vec-map anchored item)) items)))
+    ((Div class inner) (Div class (vec-map anchored inner)))
+    (_ b)))
+
+;; The blocks with the first table of contents anchored, and every heading in
+;; it given its link up. `seen` says whether the table has been met yet.
+(: linked (-> (HashSet string) (Box bool) (Vec Block) (Vec Block)))
+(defun (linked listed seen blocks)
+  (vec-map
+    (fun (b)
+      (match b
+        ((Heading level id xs)
+         (if (hashset-contains? listed id)
+             (Heading level id (vec-add xs (Span "toc-up" [(Link (str "#" (anchor-of id)) [(Str "↑")])])))
+             b))
+        ((Div class inner)
+         (cond
+           ((and (toc-class? class) (not (box-ref seen)))
+            (box-set! seen #t)
+            (anchored b))
+           (else (Div class (linked listed seen inner)))))
+        ((Quote inner) (Quote (linked listed seen inner)))
+        ((ItemList numbered start items)
+         (ItemList numbered start (vec-map (fun (item) (linked listed seen item)) items)))
+        (_ b)))
+    blocks))
+
+;; The document with links from its headings up to the table of contents, if
+;; it has one.
+(: link-headings-to-toc (-> Document Document))
+(defun (link-headings-to-toc doc)
+  (match (first-toc (record-ref doc blocks))
+    (None doc)
+    ((Some ids)
+     (record-set doc (blocks (linked (list->hashset ids) (make-box #f) (record-ref doc blocks)))))))

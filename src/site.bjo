@@ -46,6 +46,7 @@
 (import (glasnost fingerprint))
 (import (glasnost index))
 (import (glasnost layout))
+(import (glasnost toc))
 
 (import/class
   (DateTime (: System.DateTime))
@@ -394,7 +395,7 @@
         (Ok (Tuple (page-layout #:title title
                                 #:date date
                                 #:crumbs (crumbs-for (record-ref around name) parts)
-                                #:content (document->html doc #:with page-html)
+                                #:content (document->html (link-headings-to-toc doc) #:with page-html)
                                 #:stylesheet (record-ref around stylesheet))
                    (distinct (vec-merge (record-ref doc sources) (record-ref around sources))))))))))
 
@@ -435,7 +436,7 @@
                              #:date date
                              #:crumbs (crumbs-for (record-ref around name) parts)
                              #:content (match index
-                                         ((Some doc) (document->html doc #:with page-html))
+                                         ((Some doc) (document->html (link-headings-to-toc doc) #:with page-html))
                                          (None ""))
                              #:menu (blocks->html default-html (menu-blocks entries))
                              #:stylesheet (record-ref around stylesheet))

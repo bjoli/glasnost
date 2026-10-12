@@ -1,0 +1,83 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+;; glasnost/tests/toc.bjo — headings linked back up to the table of contents.
+;;
+;;     bjo run tests/toc.bjo
+;;
+;; Documents are read with samizdat's own commands, and the HTML is the HTML a
+;; page is made with. Every line should start with "ok:".
+
+(import (std prelude))
+(import (std simpletest))
+(import (samizdat doc))
+(import (samizdat expand))
+(import (samizdat commands))
+(import (samizdat html))
+(import (glasnost toc))
+
+(: html-of (-> string string))
+(defun (html-of text)
+  (match (read-document text standard-commands)
+    ((Ok doc) (document->html (link-headings-to-toc doc)))
+    ((Err e) (str "error: " e))))
+
+(: has? (-> string string bool))
+(defun (has? html piece) (string-contains? html piece))
+
+(: count-of (-> string string int))
+(defun (count-of html piece) (- (vec-length (string-split html piece)) 1))
+
+(: manual string)
+(def manual "@toc[#:depth 2]
+
+@section{Getting started}
+Text.
+
+@subsection{Installing}
+Text.
+
+@subsubsection{On Fedora}
+Deeper than the table of contents.
+
+@section*{Unnumbered}
+No id.
+
+@section{Getting started}
+The same title again.
+")
+
+(defun (main args)
+  (def html (html-of manual))
+  (expect-true "each entry has an anchor"
+               (and (has? html "<a id=\"toc--getting-started\"></a>")
+                    (has? html "<a id=\"toc--installing\"></a>")))
+  (expect-true "each heading in it links up to its entry"
+               (and (has? html "href=\"#toc--getting-started\"")
+                    (has? html "href=\"#toc--installing\"")))
+  (expect-true "the link is of class toc-up, after the title"
+               (has? html "Installing<span class=\"toc-up\"><a href=\"#toc--installing\">↑</a></span>"))
+  (expect-true "a heading with a title used twice links to its own entry"
+               (and (has? html "<a id=\"toc--getting-started-2\"></a>")
+                    (has? html "href=\"#toc--getting-started-2\"")))
+  (expect "a heading deeper than the table of contents has no link"
+          (count-of html "class=\"toc-up\"")
+          3)
+  (expect-true "@section* has none" (not (has? html "Unnumbered<span")))
+  (expect-true "the entries still link down to the headings"
+               (has? html "href=\"#installing\""))
+
+  (expect-true "numbered headings: the link comes after the number and the title"
+               (has? (html-of "@numbered-headings\n@toc\n\n@section{One}\nText.\n")
+                     "One<span class=\"toc-up\"><a href=\"#toc--one\">↑</a></span>"))
+
+  (def plain (html-of "@section{Alone}\nNo table of contents.\n"))
+  (expect-true "a page without a table of contents is as it was"
+               (and (not (has? plain "toc-up")) (not (has? plain "toc--"))))
+
+  (def twice (html-of "@toc\n\n@section{A}\nText.\n\n@toc\n"))
+  (expect "only the first table of contents gets anchors, as an id is in a page once"
+          (count-of twice "id=\"toc--a\"")
+          1)
+  0)

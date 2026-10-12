@@ -107,6 +107,11 @@
     ;; the line that says what kind of definition it is.
     ".doc-up { float: right; }"
     ".doc-up a { text-decoration: none; }"
+    ;; A heading's link back up to its entry in the table of contents: muted,
+    ;; after the title. Nothing about its size, as nothing here is about fonts.
+    ".toc-up { margin-left: .5rem; }"
+    ".toc-up a { color: var(--muted); text-decoration: none; }"
+    ".toc-up a:hover { color: var(--link); }"
     "p.error { white-space: pre-wrap; }"]
    "\n"))
 
