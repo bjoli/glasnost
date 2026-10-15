@@ -390,9 +390,12 @@
     ((Err e) (Err e))
     ((Ok doc)
      (def around (surroundings site))
-     (match (describe (Some doc) (page-stem (name-in-folder sz)) (last-written sz))
-       ((Tuple title date sortable)
+     (match (Tuple (describe (Some doc) (page-stem (name-in-folder sz)) (last-written sz))
+                   (title-shown-of (Some doc)))
+       ((Tuple _ (Err e)) (Err (str sz ": " e)))
+       ((Tuple (Tuple title date sortable) (Ok shown))
         (Ok (Tuple (page-layout #:title title
+                                #:show-title shown
                                 #:date date
                                 #:crumbs (crumbs-for (record-ref around name) parts)
                                 #:content (document->html (link-headings-to-toc doc) #:with page-html)
@@ -415,10 +418,12 @@
 (: folder-page #:sync (-> Site string (Vec string) (Option Document) Made))
 (defun (folder-page site dir parts index)
   (def where (path-combine dir "index.sz"))
-  (match (Tuple (sorting-of index) (listing-of index))
-    ((Tuple (Err e) _) (Err (str where ": " e)))
-    ((Tuple _ (Err e)) (Err (str where ": " e)))
-    ((Tuple (Ok sorting) (Ok listing))
+  (match (Tuple (sorting-of index) (listing-of index) (marker-of index) (title-shown-of index))
+    ((Tuple (Err e) _ _ _) (Err (str where ": " e)))
+    ((Tuple _ (Err e) _ _) (Err (str where ": " e)))
+    ((Tuple _ _ (Err e) _) (Err (str where ": " e)))
+    ((Tuple _ _ _ (Err e)) (Err (str where ": " e)))
+    ((Tuple (Ok sorting) (Ok listing) (Ok marker) (Ok shown))
      (def around (surroundings site))
      (def entries (if listing (sort-entries sorting (folder-entries dir)) (vec-empty)))
      (def name (if (vec-empty? parts) (record-ref around name) (last-part parts)))
@@ -433,12 +438,13 @@
      (def listed (loop (:for e entries)
                        (:acc all (folding (vec-empty) (vec-merge all (record-ref e sources))))))
      (Ok (Tuple (page-layout #:title title
+                             #:show-title shown
                              #:date date
                              #:crumbs (crumbs-for (record-ref around name) parts)
                              #:content (match index
                                          ((Some doc) (document->html (link-headings-to-toc doc) #:with page-html))
                                          (None ""))
-                             #:menu (blocks->html default-html (menu-blocks entries))
+                             #:menu (blocks->html default-html (menu-blocks entries #:marker marker))
                              #:stylesheet (record-ref around stylesheet))
                 (distinct (vec-merge (vec-merge (if listing (vec-insert index-sources 0 dir) index-sources)
                                                 listed)

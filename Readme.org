@@ -60,6 +60,17 @@ A page without a title is called by its name, and one without a date is
 dated by when it was last written. A date may be written with quotes or
 without.
 
+A page that begins with a heading of its own can leave the title out of its
+header. The browser's title still says it, the path line is as before, and
+the date is still shown:
+
+#+BEGIN_SRC text
+(meta (title "Cookies, carefully") (show-title? #f))
+#+END_SRC
+
+A folder's ~index.sz~ can say the same of the folder's page.
+~(show-title? #t)~ is what saying nothing means.
+
 ~@include~ includes only hidden files: ~@include["_parts/footer.sz"]~, or
 ~@include["_footer.sz"]~. A file that is not hidden would be a page of its
 own as well, and in its folder's menu.
@@ -83,6 +94,15 @@ Folders come first, then the rest, newest first — or as the folder's
 
 A date sorts only when it can be read as one. What has no value for the key
 comes last, by name.
+
+The folders can be sorted in among the rest, by the same key, and the slash
+after a folder's title can be left out:
+
+#+BEGIN_SRC text
+(meta (sort title) (folders mixed))       ; folders among the pages
+(meta (folders first))                    ; what saying nothing means
+(meta (folder-marker? #f))                ; no / after a folder's title
+#+END_SRC
 
 A folder whose ~index.sz~ is the whole page says so, and has no menu:
 

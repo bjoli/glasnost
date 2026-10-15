@@ -122,23 +122,26 @@
 ;; The path line: each step a link but the last, with a slash between.
 (: path-line (-> (Vec Crumb) string))
 (defun (path-line crumbs)
+  (defun (make-text text href)
+    (if (string-empty? href)
+        (str "<span>" (escape-html text) "</span>")
+        (str "<a href=\""(escape-attribute href)"\">"
+             (escape-html text) "</a>")))
   (str "<nav class=\"path\">"
        (string-join (loop (:for c crumbs)
-                          (:acc (vecing (match c
-                                          ((Tuple text href)
-                                           (if (string-empty? href)
-                                               (str "<span>" (escape-html text) "</span>")
-                                               (str "<a href=\"" (escape-attribute href) "\">"
-                                                    (escape-html text) "</a>")))))))
+                          (:let (text . href) c)
+                          (:acc (vecing (make-text text href))))
                     " / ")
        "</nav>"))
 
 ;; A whole page. `#:content` and `#:menu` are HTML already; either may be "".
 ;; `#:stylesheet` is where the site's own style sheet is, "" when it has none.
-(: page-layout (-> (#:title string) (#:date string) (#:crumbs (Vec Crumb))
+;; `#:show-title #f` leaves the title out of the header, and keeps it in the
+;; <title>; the header is left out when there is no date either.
+(: page-layout (-> (#:title string) (#:show-title bool) (#:date string) (#:crumbs (Vec Crumb))
                    (#:content string) (#:menu string) (#:stylesheet string)
                    string))
-(defun (page-layout #:title "" #:date "" #:crumbs (vec-empty)
+(defun (page-layout #:title "" #:show-title #t #:date "" #:crumbs (vec-empty)
                     #:content "" #:menu "" #:stylesheet "")
   (str "<!DOCTYPE html>\n"
        "<html>\n"
@@ -154,10 +157,12 @@
        "</head>\n"
        "<body>\n"
        (if (vec-empty? crumbs) "" (str (path-line crumbs) "\n"))
-       "<header>\n"
-       "<h1>" (escape-html title) "</h1>\n"
-       (if (string-empty? date) "" (str "<p class=\"date\"><time>" (escape-html date) "</time></p>\n"))
-       "</header>\n"
+       (if (and (not show-title) (string-empty? date))
+           ""
+           (str "<header>\n"
+                (if show-title (str "<h1>" (escape-html title) "</h1>\n") "")
+                (if (string-empty? date) "" (str "<p class=\"date\"><time>" (escape-html date) "</time></p>\n"))
+                "</header>\n"))
        (if (string-empty? content) "" (str "<main>\n" content "\n</main>\n"))
        (if (string-empty? menu) "" (str menu "\n"))
        "</body>\n"

@@ -214,6 +214,53 @@
   (expect-true "a (sort ...) that makes no sense"
                (string-contains? (html-at site "/weird/") "the key is date, title or name"))
 
+  ;; (folders mixed): a folder sorts among the pages. (folder-marker? #f):
+  ;; no slash after it.
+  (directory-create (path-combine root "mixed" "b"))
+  (rewrite! "mixed/index.sz" "(meta (sort title) (folders mixed))")
+  (rewrite! "mixed/a.sz" "(meta (title \"Alpha\"))\n\nA.")
+  (rewrite! "mixed/b/index.sz" "(meta (title \"Beta\"))")
+  (rewrite! "mixed/c.sz" "(meta (title \"Gamma\"))\n\nC.")
+  (def mixed (html-at site "/mixed/"))
+  (expect-true "(folders mixed) sorts a folder among the pages"
+               (in-order? mixed [">Alpha<" ">Beta<" ">Gamma<"]))
+  (expect-true "with its slash" (string-contains? mixed "<a href=\"b/\">Beta</a><span class=\"marker\">/</span>"))
+  (rewrite! "mixed/index.sz" "(meta (sort title) (folders first))")
+  (expect-true "(folders first) is what saying nothing means"
+               (in-order? (html-at site "/mixed/") [">Beta<" ">Alpha<" ">Gamma<"]))
+  (rewrite! "mixed/index.sz" "(meta (sort title) (folders mixed) (folder-marker? #f))")
+  (def unmarked (html-at site "/mixed/"))
+  (expect-true "(folder-marker? #f) leaves out the slash"
+               (and (string-contains? unmarked "<a href=\"b/\">Beta</a>")
+                    (not (string-contains? unmarked "<span class=\"marker\">"))))
+  (expect-true "and the order stays" (in-order? unmarked [">Alpha<" ">Beta<" ">Gamma<"]))
+  (rewrite! "mixed/index.sz" "(meta (folders sideways))")
+  (expect-true "a (folders ...) that makes no sense"
+               (string-contains? (html-at site "/mixed/") "(folders ...) is first or mixed"))
+  (rewrite! "mixed/index.sz" "(meta (folder-marker? maybe))")
+  (expect-true "a (folder-marker? ...) that is not #t or #f"
+               (string-contains? (html-at site "/mixed/") "(folder-marker? ...) is #t or #f"))
+
+  ;; (show-title? #f): no title in the header, but in the browser's title.
+  (directory-create (path-combine root "untitled"))
+  (rewrite! "untitled/page.sz" "(meta (title \"Quietly named\") (date 2026-03-01) (show-title? #f))\n\nThe text.")
+  (def untitled (html-at site "/untitled/page.html"))
+  (expect "(show-title? #f) leaves out the heading" (string-contains? untitled "<h1>") #f)
+  (expect-true "and keeps the date" (string-contains? untitled "<time>2026-03-01</time>"))
+  (expect-true "and the browser's title" (string-contains? untitled "<title>Quietly named</title>"))
+  (expect-true "and the path line, as it is"
+               (string-contains? untitled "<a href=\"/untitled/\">untitled</a> / <span>page.html</span>"))
+  (rewrite! "untitled/index.sz" "(meta (title \"Untitled\") (show-title? #f))\n\nA folder.")
+  (def untitled-folder (html-at site "/untitled/"))
+  (expect "a folder's index.sz says the same" (string-contains? untitled-folder "<h1>") #f)
+  (expect-true "and its menu is still there" (string-contains? untitled-folder "Quietly named"))
+  (rewrite! "untitled/page.sz" "(meta (title \"Quietly named\") (show-title? #t))\n\nThe text.")
+  (expect-true "(show-title? #t) shows it, as saying nothing does"
+               (string-contains? (html-at site "/untitled/page.html") "<h1>Quietly named</h1>"))
+  (rewrite! "untitled/page.sz" "(meta (show-title? perhaps))")
+  (expect-true "a (show-title? ...) that is not #t or #f"
+               (string-contains? (html-at site "/untitled/page.html") "(show-title? ...) is #t or #f"))
+
   ;; --- the cache ----------------------------------------------------------
   (def kept (kept-at site "/about.html"))
   (expect-true "a page is kept" (file-exists? kept))

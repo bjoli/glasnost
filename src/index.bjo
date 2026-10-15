@@ -27,13 +27,23 @@
 ;; A date sorts by a key only when it can be read as one; an entry without
 ;; the key goes after those with it, by name.
 ;;
+;; `(meta (folders mixed))` sorts the folders in among the rest by the same
+;; key, and `(meta (folders first))` is what saying nothing means.
+;;
+;; `(meta (folder-marker? #f))` leaves out the slash after a folder's title.
+;;
 ;; `(meta (listing? #f))` leaves the menu out: the folder's page is its
 ;; index.sz and nothing more.
+;;
+;; `(meta (show-title? #f))`, in a page or a folder's index.sz, leaves the
+;; title out of the page's header. The browser's title still says it.
 
 (export
   MenuEntry Sorting
   ;; The folder, and its (meta ...).
-  folder-entries sorting-of listing-of sort-entries menu-blocks
+  folder-entries sorting-of listing-of marker-of sort-entries menu-blocks
+  ;; A page's (meta ...), and a folder's.
+  title-shown-of
   ;; What a document is called, and when it is from.
   read-meta describe meta-date
   ;; Names and times.
@@ -221,13 +231,14 @@
 
 (type (: SortKey (Union ByDate ByTitle ByName)))
 
-;; What the (sort ...) of a folder's index.sz asks for. Opaque: `sorting-of`
-;; makes one, and `sort-entries` uses it.
+;; What the (sort ...) and (folders ...) of a folder's index.sz ask for.
+;; Opaque: `sorting-of` makes one, and `sort-entries` uses it.
 (type (: Sorting #:opaque (Record (: key SortKey)
-                                  (: descending bool))))
+                                  (: descending bool)
+                                  (: folders-first bool))))
 
 (: newest-first Sorting)
-(def newest-first (Sorting (key ByDate) (descending #t)))
+(def newest-first (Sorting (key ByDate) (descending #t) (folders-first #t)))
 
 (: word-of (-> Bjodat string))
 (defun (word-of v)
@@ -238,8 +249,8 @@
 
 ;; A key, and an order when one is given: a date is newest first unless it
 ;; says otherwise, and a title or a name A to Z.
-(: sorting-from (-> string (Option string) (Result string Sorting)))
-(defun (sorting-from key order)
+(: sorting-from (-> string (Option string) bool (Result string Sorting)))
+(defun (sorting-from key order first)
   (def k (cond
            ((= key "date") (Some ByDate))
            ((= key "title") (Some ByTitle))
@@ -249,38 +260,70 @@
     (None (Err (str "(sort " key " ...): the key is date, title or name")))
     ((Some sk)
      (match order
-       (None (Ok (Sorting (key sk) (descending (= key "date")))))
+       (None (Ok (Sorting (key sk) (descending (= key "date")) (folders-first first))))
        ((Some word)
         (case word
-          ("ascending" (Ok (Sorting (key sk) (descending #f))))
-          ("descending" (Ok (Sorting (key sk) (descending #t))))
+          ("ascending" (Ok (Sorting (key sk) (descending #f) (folders-first first))))
+          ("descending" (Ok (Sorting (key sk) (descending #t) (folders-first first))))
           (else (Err (str "(sort " key " " word "): the order is ascending or descending")))))))))
 
-;; The order the (sort ...) of a folder's index.sz asks for, newest first
-;; when it has none.
+;; Whether folders come before the rest: `(folders first)`, as saying nothing
+;; means, or `(folders mixed)`, which sorts them in among the rest by the key.
+(: folders-first-of (-> Document (Result string bool)))
+(defun (folders-first-of d)
+  (match (meta-values d "folders")
+    (None (Ok #t))
+    ((Some (Cons v Nil))
+     (case (word-of v)
+       ("first" (Ok #t))
+       ("mixed" (Ok #f))
+       (else (Err "(folders ...) is first or mixed"))))
+    ((Some other) (Err "(folders ...) is first or mixed"))))
+
+;; The order the (sort ...) and (folders ...) of a folder's index.sz ask
+;; for: newest first, folders first, when it says nothing.
 (: sorting-of (-> (Option Document) (Result string Sorting)))
 (defun (sorting-of doc)
   (match doc
     (None (Ok newest-first))
     ((Some d)
-     (match (meta-values d "sort")
-       (None (Ok newest-first))
-       ((Some (Cons key Nil)) (sorting-from (word-of key) None))
-       ((Some (Cons key (Cons order Nil))) (sorting-from (word-of key) (Some (word-of order))))
-       ((Some other) (Err "(sort ...) is a key — date, title or name — and perhaps ascending or descending"))))))
+     (match (folders-first-of d)
+       ((Err e) (Err e))
+       ((Ok first)
+        (match (meta-values d "sort")
+          (None (Ok (Sorting (key ByDate) (descending #t) (folders-first first))))
+          ((Some (Cons key Nil)) (sorting-from (word-of key) None first))
+          ((Some (Cons key (Cons order Nil))) (sorting-from (word-of key) (Some (word-of order)) first))
+          ((Some other) (Err "(sort ...) is a key — date, title or name — and perhaps ascending or descending"))))))))
+
+;; A (name #t) or (name #f) of a document's (meta ...): #t when it says nothing.
+(: flag-of (-> (Option Document) string (Result string bool)))
+(defun (flag-of doc name)
+  (match doc
+    (None (Ok #t))
+    ((Some d)
+     (match (meta-values d name)
+       (None (Ok #t))
+       ((Some (Cons (BjoBool b) Nil)) (Ok b))
+       ((Some other) (Err (str "(" name " ...) is #t or #f")))))))
 
 ;; Whether the folder's page lists what is in it: `(listing? #f)` in its
 ;; index.sz says not, for a folder whose index.sz is the whole page. Listed
 ;; unless it says.
 (: listing-of (-> (Option Document) (Result string bool)))
-(defun (listing-of doc)
-  (match doc
-    (None (Ok #t))
-    ((Some d)
-     (match (meta-values d "listing?")
-       (None (Ok #t))
-       ((Some (Cons (BjoBool b) Nil)) (Ok b))
-       ((Some other) (Err "(listing? ...) is #t or #f"))))))
+(defun (listing-of doc) (flag-of doc "listing?"))
+
+;; Whether a page shows its title above what it says: `(show-title? #f)` in
+;; its (meta ...) says not, for a page that begins with a heading of its own.
+;; The browser's title still has it. Shown unless it says.
+(: title-shown-of (-> (Option Document) (Result string bool)))
+(defun (title-shown-of doc) (flag-of doc "show-title?"))
+
+;; Whether the menu puts a slash after a folder's title: `(folder-marker? #f)`
+;; in its index.sz says not, for a folder whose titles already say what they
+;; are. A slash unless it says.
+(: marker-of (-> (Option Document) (Result string bool)))
+(defun (marker-of doc) (flag-of doc "folder-marker?"))
 
 (: compare-names (-> MenuEntry MenuEntry int))
 (defun (compare-names a b)
@@ -303,11 +346,12 @@
        ((string-empty? db) (- 0 1))
        (else (turn (compare da db)))))))
 
-;; Folders first; then by the key; then by name, A to Z.
+;; Folders first, unless (folders mixed); then by the key; then by name, A to
+;; Z.
 (: compare-entries (-> Sorting MenuEntry MenuEntry int))
 (defun (compare-entries sorting a b)
-  (def fa (record-ref a folder))
-  (def fb (record-ref b folder))
+  (def fa (and (record-ref sorting folders-first) (record-ref a folder)))
+  (def fb (and (record-ref sorting folders-first) (record-ref b folder)))
   (cond
     ((and fa (not fb)) (- 0 1))
     ((and fb (not fa)) 1)
@@ -325,18 +369,19 @@
 ;; The menu
 ;; ---------------------------------------------------------------------------
 
-;; One line: the link, a slash after a folder's, and the date.
-(: menu-line (-> MenuEntry Block))
-(defun (menu-line e)
+;; One line: the link, a slash after a folder's when `marker`, and the date.
+(: menu-line (-> bool MenuEntry Block))
+(defun (menu-line marker e)
   (def link (Link (record-ref e href) [(Str (record-ref e title))]))
-  (def marked (if (record-ref e folder) [link (Span "marker" [(Str "/")])] [link]))
+  (def marked (if (and marker (record-ref e folder)) [link (Span "marker" [(Str "/")])] [link]))
   (def date (record-ref e date))
   (Para (if (string-empty? date) marked (vec-add marked (Span "date" [(Str date)])))))
 
 ;; The menu, as a div of class "menu" with a paragraph to an entry; nothing
-;; for an empty folder.
-(: menu-blocks (-> (Vec MenuEntry) (Vec Block)))
-(defun (menu-blocks entries)
+;; for an empty folder. `#:marker #f` leaves out the slash after a folder's
+;; title.
+(: menu-blocks (-> (Vec MenuEntry) (#:marker bool) (Vec Block)))
+(defun (menu-blocks entries #:marker #t)
   (if (vec-empty? entries)
       (vec-empty)
-      [(Div "menu" (vec-map menu-line entries))]))
+      [(Div "menu" (vec-map (fun (e) (menu-line marker e)) entries))]))
