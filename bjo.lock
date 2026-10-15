@@ -1,11 +1,11 @@
 (lock
   (locked
-    (package (name (bjorsec)) (version "0.2.1")
+    (package (name (bjorsec)) (version "0.3.1")
              (source (git (url "https://github.com/bjoli/bjorsec")))
-             (commit "f45aa316692b78effed31816dda9767f22f3129b"))
-    (package (name (bjoweb)) (version "0.9.0")
+             (commit "b28a148a133eb1a58fba610572f9e3aff681122a"))
+    (package (name (bjoweb)) (version "0.10.0")
              (source (git (url "https://github.com/bjoli/bjoweb")))
-             (commit "8f8e94a2753254555b5e305b7dd77e5bece5a0ea"))
+             (commit "5da524737c638d44249646d6a37f728922427a2e"))
     (package (name (markdig-bjolang)) (version "0.2.0")
              (source (git (url "https://github.com/bjoli/markdig-bjolang")))
              (commit "81cb27667677237c96525a2fee9e65fa76cb0532"))
