@@ -23,8 +23,8 @@
 (export Crumb page-layout builtin-css page-html)
 
 (import (std prelude))
-(import (only (samizdat html) html-options escape-html escape-attribute))
-(import (only (textmate-bjolang core) highlighter highlighter-css))
+(import (only (samizdat html) Html html-options escape-html escape-attribute))
+(import (only (textmate-bjolang core) TmHighlighter highlighter highlighter-css))
 
 ;; One step of the path line: what it says, and where it goes — "" for the
 ;; last one, which is the page itself and not a link.
