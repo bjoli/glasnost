@@ -25,8 +25,9 @@
     ;; links a generated reference's entries back up to its index. 0.9.1
     ;; reads a macro's form as the string Bjolang publishes it as. 0.9.2
     ;; names the types its only lists use, which Bjolang 0.1.0 requires.
+    ;; 0.10.0 declares grammars, which Bjolang 0.2.0 requires.
     (package (name (samizdat))
-             (version (version-at-least "0.9.2"))
+             (version (version-at-least "0.10.0"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; samizdat's reader is written with it, and asks for 0.2.1. 0.3.0
     ;; parses a run as a slice of the input, which is faster and allocates
@@ -37,9 +38,10 @@
     ;; The highlighter, and the style sheet for its classes. samizdat brings
     ;; it too; it is named here because the layout uses it itself. 0.1.1
     ;; declares its grammars as a resource, which bjo publish needs to copy
-    ;; them into the container.
+    ;; them into the container. 0.2.0 declares grammars, which Bjolang 0.2.0
+    ;; requires.
     (package (name (textmate-bjolang))
-             (version (version-at-least "0.1.3"))
+             (version (version-at-least "0.2.0"))
              (source (git (url "https://rikspucko.koketteriet.se/bjoli/textmate-bjolang")))))
 
   ;; A program: src/main.bjo.
