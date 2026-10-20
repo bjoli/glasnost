@@ -12,7 +12,7 @@
 ;; called what their (meta ...) says — the folder's is its `index.sz`'s — and
 ;; dated by it:
 ;;
-;;     (meta (title "Cookies, and what they keep") (date 2026-09-26))
+;;     (meta (title "Cookies, and what they keep") (date "2026-09-26"))
 ;;
 ;; What says nothing, and every other file, is called by its name and dated
 ;; by when it was last written.
@@ -124,26 +124,13 @@
        (None None)))
     (_ None)))
 
-;; `(date "2026-09-26")`, or `(date 2026-09-26)`, which bjodat reads as the
-;; numbers 2026, -9 and -26, and which is put back together here.
+;; `(date "2026-09-26")`.
 (: meta-date (-> Document (Option string)))
 (defun (meta-date doc)
   (match (meta-values doc "date")
     ((Some (Cons (BjoStr s) Nil)) (Some s))
     ((Some (Cons (BjoSym s) Nil)) (Some (symbol->string s)))
-    ((Some (Cons (BjoInt year) rest)) (joined-date year rest))
     (_ None)))
-
-(: joined-date (-> long (List Bjodat) (Option string)))
-(defun (joined-date year rest)
-  (loop (:for v rest)
-        (:acc text (folding (Some (long->string year))
-                            (match (Tuple text v)
-                              ((Tuple (Some before) (BjoInt n))
-                               (if (< n 0L)
-                                   (Some (str before "-" (string-pad-left (long->string (- 0L n)) 2 #:with #\0)))
-                                   None))
-                              (_ None))))))
 
 ;; What a menu line, or a page's header, says about a document: its title,
 ;; and its date as it is shown and as it sorts. They come from its (meta ...),

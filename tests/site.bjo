@@ -128,7 +128,7 @@
   ;; --- pages --------------------------------------------------------------
   (def about (html-at site "/about.html"))
   (expect-true "the title from the meta" (string-contains? about "<h1>About this site</h1>"))
-  (expect-true "the date from the meta, written without quotes"
+  (expect-true "the date from the meta"
                (string-contains? about "<time>2026-01-15</time>"))
   (expect-true "a section is one level below the title"
                (string-contains? about "<h2 id=\"who\">Who</h2>"))
@@ -243,7 +243,7 @@
 
   ;; (show-title? #f): no title in the header, but in the browser's title.
   (directory-create (path-combine root "untitled"))
-  (rewrite! "untitled/page.sz" "(meta (title \"Quietly named\") (date 2026-03-01) (show-title? #f))\n\nThe text.")
+  (rewrite! "untitled/page.sz" "(meta (title \"Quietly named\") (date \"2026-03-01\") (show-title? #f))\n\nThe text.")
   (def untitled (html-at site "/untitled/page.html"))
   (expect "(show-title? #f) leaves out the heading" (string-contains? untitled "<h1>") #f)
   (expect-true "and keeps the date" (string-contains? untitled "<time>2026-03-01</time>"))
@@ -367,7 +367,7 @@
             (expect "a page that cannot be made says why"
                     (over-http (http-get (at "/broken.html")) "broken.sz:3:11: @nosuchcommand")
                     "500 text/html; charset=utf-8 +")
-            (expect "a POST is not answered" (over-http (http-post (at "/about.html") (Text "x")) "")
+            (expect "a POST is not answered" (over-http (http-post (at "/about.html") (http/Text "x")) "")
                     "405 text/plain; charset=utf-8 +"))
         #:finally (stop-server! server)))))
 

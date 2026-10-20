@@ -1,5 +1,5 @@
 (meta (title "Made when read, kept until changed")
-      (date 2026-09-24))
+      (date "2026-09-24"))
 
 Nothing here was built beforehand. The first time a page is asked for,
 glasnost reads its @code{.sz}, makes the HTML, and keeps it. After that it

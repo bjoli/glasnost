@@ -1,5 +1,5 @@
 (meta (title "Lists and tables")
-      (date 2026-09-25))
+      (date "2026-09-25"))
 
 A list can be written the way Markdown or Org writes one, nested by how far
 an item is indented:

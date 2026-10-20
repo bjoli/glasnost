@@ -51,14 +51,13 @@ date come from its ~(meta ...)~:
 
 #+BEGIN_SRC text
 (meta (title "Cookies, carefully")
-      (date 2026-09-26))
+      (date "2026-09-26"))
 
 Setting a cookie is one header...
 #+END_SRC
 
 A page without a title is called by its name, and one without a date is
-dated by when it was last written. A date may be written with quotes or
-without.
+dated by when it was last written.
 
 A page that begins with a heading of its own can leave the title out of its
 header. The browser's title still says it, the path line is as before, and

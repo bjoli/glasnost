@@ -1,5 +1,5 @@
 (meta (title "Writing a page")
-      (date 2026-09-20))
+      (date "2026-09-20"))
 
 A page is a @code{.sz} file: text, with commands in it where the text needs
 more than text. A command is an @code{@"@"} and a name, perhaps arguments in
@@ -7,7 +7,7 @@ brackets, and perhaps a body in braces:
 
 @codeblock|<{
 (meta (title "Writing a page")
-      (date 2026-09-20))
+      (date "2026-09-20"))
 
 A page is a @code{.sz} file: text, with @em{commands} in it.@note{Like
 this one, which is a footnote.}

@@ -1,5 +1,5 @@
 (meta (title "Markdown, where it is quicker")
-      (date 2026-09-26))
+      (date "2026-09-26"))
 
 Some things are quicker to write in Markdown, and samizdat reads it, into the
 same tree as the rest of the page:
