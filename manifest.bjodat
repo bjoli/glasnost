@@ -1,6 +1,6 @@
 (package
   (name (glasnost))
-  (version "0.3.14")
+  (version "0.3.15")
   (description "A site that is made as it is read: samizdat pages, generated when asked for and kept until their sources change; folders as menus, as Gopher had them.")
   (license "MPL-2.0")
 
@@ -12,7 +12,7 @@
     ;; allocates a third less for each request. 0.10.1 names the types its
     ;; only lists use, which Bjolang 0.1.0 requires.
     (package (name (bjoweb))
-             (version (version-at-least "0.11.0"))
+             (version (version-at-least "0.11.1"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
     ;; 0.3.0 says what files a document was made from.
     ;; 0.5.0: a code block is coloured when the HTML converter is given a
@@ -27,13 +27,13 @@
     ;; names the types its only lists use, which Bjolang 0.1.0 requires.
     ;; 0.10.0 declares grammars, which Bjolang 0.2.0 requires.
     (package (name (samizdat))
-             (version (version-at-least "0.10.0"))
+             (version (version-at-least "0.10.1"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; samizdat's reader is written with it, and asks for 0.2.1. 0.3.0
     ;; parses a run as a slice of the input, which is faster and allocates
     ;; less.
     (package (name (bjorsec))
-             (version (version-at-least "0.3.1"))
+             (version (version-at-least "0.3.2"))
              (source (git (url "https://github.com/bjoli/bjorsec"))))
     ;; The highlighter, and the style sheet for its classes. samizdat brings
     ;; it too; it is named here because the layout uses it itself. 0.1.1
