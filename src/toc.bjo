@@ -22,7 +22,7 @@
 (export link-headings-to-toc)
 
 (import (std prelude))
-(import (only (std hashset) list->hashset hashset-contains?))
+(import (only (std hashset) HashSet list->hashset hashset-contains?))
 (import (samizdat doc))
 
 (: anchor-of (-> string string))
