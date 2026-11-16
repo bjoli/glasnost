@@ -34,8 +34,8 @@
   (def folders (loop (:for d (directory-subdirectories dir))
                      (:let name (name-in-folder d))
                      (:when (not (hidden-name? name)))
-                     (:acc all (folding (vec-empty) (vec-merge all (urls-under d (str url name "/")))))))
-  (vec-merge (vec-insert pages 0 url) folders))
+                     (:acc all (folding (vec-empty) (vec-append all (urls-under d (str url name "/")))))))
+  (vec-append (vec-insert pages 0 url) folders))
 
 (: html-at (-> Site string string))
 (defun (html-at site path)

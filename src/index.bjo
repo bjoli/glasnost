@@ -201,7 +201,7 @@
 ;; What is in the folder at `dir`, hidden things aside, in no order.
 (: folder-entries #:sync (-> string (Vec MenuEntry)))
 (defun (folder-entries dir)
-  (vec-merge
+  (vec-append
    (loop (:for sub (directory-subdirectories dir))
          (:let name (name-of-path sub))
          (:when (not (hidden-name? name)))

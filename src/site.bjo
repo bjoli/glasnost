@@ -177,7 +177,7 @@
                        Missing)))
 
 (: nul string)
-(def nul (char->string (integer->char 0)))
+(def nul (char->string (int->char 0)))
 
 ;; A part no file in the site has for a name: `..` would leave it.
 (: unsafe-part? (-> string bool))
@@ -343,7 +343,7 @@
 (: distinct (-> (Vec string) (Vec string)))
 (defun (distinct xs)
   (loop (:for x xs)
-        (:acc out (folding (vec-empty) (if (vec-contains out x) out (vec-add out x))))))
+        (:acc out (folding (vec-empty) (if (vec-contains? out x) out (vec-add out x))))))
 
 ;; A path when it is there; otherwise the nearest folder above it that is,
 ;; which is written when the path comes.
@@ -400,7 +400,7 @@
                                 #:crumbs (crumbs-for (record-ref around name) parts)
                                 #:content (document->html (link-headings-to-toc doc) #:with page-html)
                                 #:stylesheet (record-ref around stylesheet))
-                   (distinct (vec-merge (record-ref doc sources) (record-ref around sources))))))))))
+                   (distinct (vec-append (record-ref doc sources) (record-ref around sources))))))))))
 
 (: make-folder #:sync (-> Site string (Vec string) Made))
 (defun (make-folder site dir parts)
@@ -436,7 +436,7 @@
                           ((Some doc) (record-ref doc sources))
                           (None (vec-empty))))
      (def listed (loop (:for e entries)
-                       (:acc all (folding (vec-empty) (vec-merge all (record-ref e sources))))))
+                       (:acc all (folding (vec-empty) (vec-append all (record-ref e sources))))))
      (Ok (Tuple (page-layout #:title title
                              #:show-title shown
                              #:date date
@@ -446,7 +446,7 @@
                                          (None ""))
                              #:menu (blocks->html default-html (menu-blocks entries #:marker marker))
                              #:stylesheet (record-ref around stylesheet))
-                (distinct (vec-merge (vec-merge (if listing (vec-insert index-sources 0 dir) index-sources)
+                (distinct (vec-append (vec-append (if listing (vec-insert index-sources 0 dir) index-sources)
                                                 listed)
                                      (record-ref around sources))))))))
 
