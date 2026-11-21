@@ -67,7 +67,7 @@
     ((Some _) #t)
     (None #f)))
 
-(: check-example #:sync (-> int))
+(: check-example (-> int) #:sync)
 (defun (check-example)
   (def work (path-absolute "tests/cache/example"))
   (when (directory-exists? work) (directory-delete-tree work))

@@ -31,7 +31,7 @@
     ;; types. 0.10.3 uses vec-append, vec-contains?, string-find and
     ;; int->char, as Bjolang names them.
     (package (name (samizdat))
-             (version (version-at-least "0.10.3"))
+             (version (version-at-least "0.10.4"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; samizdat's reader is written with it, and asks for 0.2.1. 0.3.0
     ;; parses a run as a slice of the input, which is faster and allocates
@@ -46,7 +46,7 @@
     ;; requires. 0.2.1 names the type its only list uses. 0.2.3 uses
     ;; vec-append and vec-contains?, as Bjolang names them.
     (package (name (textmate-bjolang))
-             (version (version-at-least "0.2.3"))
+             (version (version-at-least "0.2.4"))
              (source (git (url "https://rikspucko.koketteriet.se/bjoli/textmate-bjolang")))))
 
   ;; A program: src/main.bjo.

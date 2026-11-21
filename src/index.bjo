@@ -114,7 +114,7 @@
 ;; The (meta ...) of the document at `path`, read without running any of its
 ;; commands, as a document with nothing else in it: `None` when it has no
 ;; (meta ...), or cannot be read.
-(: read-meta #:sync (-> string (Option Document)))
+(: read-meta (-> string (Option Document)) #:sync)
 (defun (read-meta path)
   (match (try (read-source-file path) #:catch (System.Exception))
     ((Ok (Ok src))
@@ -199,7 +199,7 @@
        (file-exists? (path-combine dir (str (page-stem name) ".sz")))))
 
 ;; What is in the folder at `dir`, hidden things aside, in no order.
-(: folder-entries #:sync (-> string (Vec MenuEntry)))
+(: folder-entries (-> string (Vec MenuEntry)) #:sync)
 (defun (folder-entries dir)
   (vec-append
    (loop (:for sub (directory-subdirectories dir))

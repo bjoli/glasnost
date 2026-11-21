@@ -62,7 +62,7 @@
             (else (go more a cache port host)))))))))
 
 ;; The site, and the old caches beside its own, which are removed.
-(: open-site #:sync (-> Options (Tuple Site (Vec string))))
+(: open-site (-> Options (Tuple Site (Vec string))) #:sync)
 (defun (open-site o)
   (def site (make-site (record-ref o root) #:cache (record-ref o cache)))
   (Tuple site (clear-old-caches! site)))

@@ -86,7 +86,7 @@
 ;; The site in the folder `root`. Its caches are in `#:cache`, `_cache` in the
 ;; site unless it says otherwise; `#:commands` are more commands, or other
 ;; ones, for its pages.
-(: make-site #:sync (-> string (#:cache string) (#:commands (Map string Command)) Site))
+(: make-site (-> string (#:cache string) (#:commands (Map string Command)) Site) #:sync)
 (defun (make-site root #:cache "" #:commands (map-empty))
   (def full (trim-separator (path-absolute root)))
   (def caches (if (string-empty? cache)
@@ -107,7 +107,7 @@
 ;; Removes the caches beside this one — what other code made, which nothing
 ;; will read again — and answers where they were. A folder there that is not
 ;; named as a cache is is left alone.
-(: clear-old-caches! #:sync (-> Site (Vec string)))
+(: clear-old-caches! (-> Site (Vec string)) #:sync)
 (defun (clear-old-caches! site)
   (def mine (record-ref site cache))
   (def caches (parent-of mine))
@@ -143,7 +143,7 @@
 
 ;; @include["_parts/header.sz"], which refuses a file that is not hidden, or
 ;; not in the site.
-(: include-hidden #:sync (-> string Command))
+(: include-hidden (-> string Command) #:sync)
 (defun (include-hidden root)
   (fun (cx c)
     (check-keywords! cx c (vec-empty))
@@ -159,7 +159,7 @@
       (else (include-file cx c written)))))
 
 ;; samizdat's commands, with the @include a site has.
-(: site-commands #:sync (-> string (Map string Command)))
+(: site-commands (-> string (Map string Command)) #:sync)
 (defun (site-commands root)
   (map-set standard-commands "include" (include-hidden root)))
 
@@ -293,7 +293,7 @@
 (type (: Made (Alias (Result string (Tuple string (Vec string))))))
 
 ;; The kept page, made and kept first when it is not fresh: where it is.
-(: kept-or-made #:sync (-> string (-> Made) (Result string string)))
+(: kept-or-made (-> string (-> Made) (Result string string)) #:sync)
 (defun (kept-or-made kept make)
   (if (fresh? kept)
       (Ok kept)
@@ -319,7 +319,7 @@
 ;; A server sends the file as it is, and never holds the page as text: a big
 ;; page read into a string and encoded again is a few megabytes of garbage a
 ;; request.
-(: target-file #:sync (-> Site Target (Result string string)))
+(: target-file (-> Site Target (Result string string)) #:sync)
 (defun (target-file site target)
   (def made (match target
               ((Page sz kept parts) (kept-or-made kept (fun () (make-page site sz parts))))
@@ -330,7 +330,7 @@
     ((Err why) (Err (from-site site why)))))
 
 ;; The HTML itself.
-(: target-html #:sync (-> Site Target (Result string string)))
+(: target-html (-> Site Target (Result string string)) #:sync)
 (defun (target-html site target)
   (match (target-file site target)
     ((Ok kept) (Ok (file-read-text kept)))
@@ -384,7 +384,7 @@
               0
               (Tuple site-name (if (= n 0) "" "/"))))
 
-(: make-page #:sync (-> Site string (Vec string) Made))
+(: make-page (-> Site string (Vec string) Made) #:sync)
 (defun (make-page site sz parts)
   (match (read-document-file sz (record-ref site commands))
     ((Err e) (Err e))
@@ -402,7 +402,7 @@
                                 #:stylesheet (record-ref around stylesheet))
                    (distinct (vec-append (record-ref doc sources) (record-ref around sources))))))))))
 
-(: make-folder #:sync (-> Site string (Vec string) Made))
+(: make-folder (-> Site string (Vec string) Made) #:sync)
 (defun (make-folder site dir parts)
   (def index (path-combine dir "index.sz"))
   (if (file-exists? index)
@@ -415,7 +415,7 @@
 ;; index.sz says `(listing? #f)`. The menu is made again when the folder
 ;; changes — something comes or goes — and when anything it lists does; a
 ;; page without one, only when its index.sz does.
-(: folder-page #:sync (-> Site string (Vec string) (Option Document) Made))
+(: folder-page (-> Site string (Vec string) (Option Document) Made) #:sync)
 (defun (folder-page site dir parts index)
   (def where (path-combine dir "index.sz"))
   (match (Tuple (sorting-of index) (listing-of index) (marker-of index) (title-shown-of index))
@@ -452,7 +452,7 @@
 
 ;; A page that says something went wrong, which is not kept: "Not found",
 ;; and why.
-(: message-page #:sync (-> Site string string string))
+(: message-page (-> Site string string string) #:sync)
 (defun (message-page site title text)
   (def around (surroundings site))
   (page-layout #:title title

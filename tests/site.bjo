@@ -95,7 +95,7 @@
 
 ;; Everything here reads and writes files, and parks the thread it is on while
 ;; it does; `main` runs it on a thread of its own.
-(: check-site #:sync (-> int))
+(: check-site (-> int) #:sync)
 (defun (check-site)
   (when (directory-exists? work) (directory-delete-tree work))
   (copy-tree! (path-absolute "tests/site") root)

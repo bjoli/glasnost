@@ -32,7 +32,7 @@
 
 ;; The answer to a GET for `path`. A page and a file are both sent from the
 ;; disk as they are, a piece at a time, by bjoweb.
-(: answer #:sync (-> Site string Response))
+(: answer (-> Site string Response) #:sync)
 (defun (answer site path)
   (match (resolve site path)
     (Missing (html (message-page site "Not found" (str path " is not here.")) #:status 404))
