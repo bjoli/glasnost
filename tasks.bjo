@@ -1,0 +1,95 @@
+;; The tasks of glasnost. Run `bjo task` for the list.
+
+(export container)
+
+(import (std prelude))
+(import (bjo task))
+
+;; Returns #t when `program` is a file in a directory on PATH.
+(: (-> string bool))
+(defun (on-path? program)
+  (match (get-environment-variable "PATH")
+    (None #f)
+    ((Some dirs)
+     (match {finding dir
+                     :when (and (not (string-empty? dir))
+                                (file-exists? (path-combine dir program)))
+                     (:for dir (string-split dirs ":"))}
+       ((Some _) #t)
+       (None #f)))))
+
+;; The value of an environment variable, or "" when it is not set.
+(: (-> string string))
+(defun (environment-or-empty name)
+  (match (get-environment-variable name)
+    ((Some value) value)
+    (None "")))
+
+;; The environment the host's podman runs with. The toolbox's environment
+;; (container=podman and the rest) makes a rootless build fail to join its
+;; user namespace. XDG_RUNTIME_DIR is left out when it is not set, and podman
+;; then uses its default.
+(: (-> (Vec string)))
+(defun (host-environment)
+  (vec-append
+   ["env" "-i"
+    #"HOME=${(environment-or-empty "HOME")}"
+    #"USER=${(environment-or-empty "USER")}"
+    "PATH=/usr/bin:/bin"]
+   (match (get-environment-variable "XDG_RUNTIME_DIR")
+     ((Some dir) [#"XDG_RUNTIME_DIR=${dir}"])
+     (None []))))
+
+;; The command that runs podman, or None when there is none.
+;;
+;; - Inside a toolbox or distrobox (/run/.containerenv exists), the host's
+;;   podman is used, through host-spawn, distrobox-host-exec or flatpak-spawn.
+;;   The host sees the same /home, so it finds container/ where it is here.
+;; - A podman inside the toolbox is not used: rootless podman nested in a
+;;   rootless container cannot make its user namespace.
+(: (-> (Option (Vec string))))
+(defun (podman-command)
+  (def inside? (file-exists? "/run/.containerenv"))
+  (cond
+    ((and inside? (on-path? "host-spawn"))
+     (Some (vec-append ["host-spawn"] (vec-append (host-environment) ["podman"]))))
+    ((and inside? (on-path? "distrobox-host-exec"))
+     (Some (vec-append ["distrobox-host-exec"] (vec-append (host-environment) ["podman"]))))
+    ((and inside? (on-path? "flatpak-spawn"))
+     (Some (vec-append ["flatpak-spawn" "--host"] (vec-append (host-environment) ["podman"]))))
+    ((on-path? "podman") (Some ["podman"]))
+    (else None)))
+
+(:doc container
+  (summary "Builds a podman image of glasnost from container/Containerfile.")
+  (key #:image "The name of the image.")
+  (reference """
+    @code{bjo publish --whole-stdlib} puts glasnost and everything it loads
+    in @code{container/app}, with paths relative to the program. The image
+    needs only that directory and the .NET runtime. The whole standard
+    library is copied, sources and docs included, because samizdat's
+    @code{@defmodule} reads module docs from it at run time.
+
+    @code{container/skel} gets the directories the image needs. The base
+    image has no shell to make them with.
+
+    Inside a toolbox or distrobox, the host's podman builds the image. When
+    there is no podman, the task prints the command to build the image with
+    on a machine that has one.
+    """))
+(: (-> (#:image string) void))
+(defun (container #:image "glasnost")
+  (def here (path-absolute "container"))
+  (task-run! ["bjo" "publish" "--whole-stdlib" "-o" (path-combine here "app")])
+  (def skel (path-combine here "skel"))
+  (when (directory-exists? skel) (directory-delete-tree skel))
+  (loop (:for dir ["srv/glasnost/wwwroot" "cache" "site"])
+        (:do (directory-create (path-combine skel dir))))
+  (def build ["build" "-t" image "-f" (path-combine here "Containerfile") here])
+  (match (podman-command)
+    ((Some podman)
+     (println #"container: ${(string-join podman " ")} build -t ${image}")
+     (task-run! (vec-append podman build)))
+    (None
+     (println "container: no podman here. On a machine that has one, build with")
+     (println #"  podman ${(string-join build " ")}"))))

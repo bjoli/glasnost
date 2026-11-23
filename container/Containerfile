@@ -1,6 +1,6 @@
 # glasnost, serving the site mounted at /site.
 #
-#   container/build.sh
+#   bjo task container
 #   podman run -d --name site -p 8080:8080 \
 #       -v /path/to/site:/site:ro,Z -v glasnost-cache:/cache glasnost
 #
@@ -16,10 +16,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 # What `bjo publish` made: the program and everything it loads.
 COPY app/ /app/
 
-# The directories the program needs, made by build.sh, since there is no shell
-# here to make them. /cache is written to, so it belongs to the app user the
-# image runs as. ASP.NET's content root is the working directory, and it makes
-# a wwwroot there if there is none, which a read-only one would refuse.
+# The directories the program needs, made by `bjo task container`, since there
+# is no shell here to make them. /cache is written to, so it belongs to the app
+# user the image runs as. ASP.NET's content root is the working directory, and
+# it makes a wwwroot there if there is none, which a read-only one would refuse.
 COPY --chown=1654:1654 skel/ /
 
 WORKDIR /srv/glasnost
