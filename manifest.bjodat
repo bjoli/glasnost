@@ -13,7 +13,7 @@
     ;; only lists use, which Bjolang 0.1.0 requires. 0.12.0 uses
     ;; string-find, char->int and vec-contains?, as Bjolang names them.
     (package (name (bjoweb))
-             (version (version-at-least "0.12.0"))
+             (version (version-at-least "0.12.1"))
              (source (git (url "https://github.com/bjoli/bjoweb"))))
     ;; 0.3.0 says what files a document was made from.
     ;; 0.5.0: a code block is coloured when the HTML converter is given a
@@ -31,7 +31,7 @@
     ;; types. 0.10.3 uses vec-append, vec-contains?, string-find and
     ;; int->char, as Bjolang names them.
     (package (name (samizdat))
-             (version (version-at-least "0.10.4"))
+             (version (version-at-least "0.10.5"))
              (source (git (url "https://github.com/bjoli/samizdat"))))
     ;; samizdat's reader is written with it, and asks for 0.2.1. 0.3.0
     ;; parses a run as a slice of the input, which is faster and allocates
