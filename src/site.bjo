@@ -112,7 +112,7 @@
   (def mine (record-ref site cache))
   (def caches (parent-of mine))
   (def old (if (directory-exists? caches)
-               (loop (:for dir (directory-subdirectories caches))
+               (loop (:for dir (vec-map path->string/lossy (directory-subdirectories caches)))
                      (:when (and (not (= dir mine)) (fingerprint-name? (name-in-folder dir))))
                      (:acc (vecing dir)))
                (vec-empty)))

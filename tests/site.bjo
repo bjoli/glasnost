@@ -42,9 +42,9 @@
 (: copy-tree! (-> string string void))
 (defun (copy-tree! from to)
   (directory-create to)
-  (loop (:for f (directory-files from))
+  (loop (:for f (vec-map path->string/lossy (directory-files from)))
         (:do (copy-file! f (path-combine to (name-in-folder f)) #t)))
-  (loop (:for d (directory-subdirectories from))
+  (loop (:for d (vec-map path->string/lossy (directory-subdirectories from)))
         (:do (copy-tree! d (path-combine to (name-in-folder d))))))
 
 (: work string)
