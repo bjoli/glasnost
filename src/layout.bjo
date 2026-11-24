@@ -24,7 +24,7 @@
 
 (import (std prelude))
 (import (only (samizdat html) Html html-options escape-html escape-attribute))
-(import (only (textmate-bjolang core) TmHighlighter highlighter highlighter-css))
+(import (only (textmate-bjolang core) TmHighlighter highlighter highlighter-css code->node))
 
 ;; One step of the path line: what it says, and where it goes — "" for the
 ;; last one, which is the page itself and not a link.
@@ -60,7 +60,9 @@
 ;; How a document is written: its code blocks coloured by class, for the
 ;; colours above.
 (: page-html Html)
-(def page-html (html-options #:highlighter (Some code-highlighter) #:highlight-style 'classes))
+(def page-html
+  (html-options #:highlighter
+    (Some (fun (lang code) (Some (code->node code-highlighter lang code #:style 'classes))))))
 
 ;; Colours, a column and some space, light and dark.
 (: page-css string)
