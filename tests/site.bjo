@@ -12,7 +12,7 @@
 
 (import (std prelude))
 (import (std simpletest))
-(import (prefix-types (rename (std http)
+(import (prefix-types (rename (std http client)
                               (response-status http-status)
                               (response-header http-header)
                               (response-text http-text))
@@ -322,7 +322,7 @@
 (: over-http (-bjo-> http/Request string string))
 (defbjo (over-http req needle)
   (match (fetch req)
-    ((Err e) (str "failed: " (.-Message e)))
+    ((Err e) (str "failed: " (http-error-message e)))
     ((Ok r)
      (let* ((code (http-status r))
             (type (option-ref-or (http-header r "content-type") "-"))
@@ -349,7 +349,7 @@
     (let ((server (start-server (site-router site) #:port port #:workers 2)))
       (try
           ;; Redirects are not followed, so that one can be seen.
-          (parameterize ((current-http-client (make-client #:redirects #f)))
+          (parameterize ((current-handler (make-transport #:redirects #f)))
             (expect "a page" (over-http (http-get (at "/about.html")) "<h1>About, again</h1>")
                     "200 text/html; charset=utf-8 +")
             (expect "the front page" (over-http (http-get (at "/")) "Hello again.")
@@ -367,7 +367,7 @@
             (expect "a page that cannot be made says why"
                     (over-http (http-get (at "/broken.html")) "broken.sz:3:11: @nosuchcommand")
                     "500 text/html; charset=utf-8 +")
-            (expect "a POST is not answered" (over-http (http-post (at "/about.html") (http/Text "x")) "")
+            (expect "a POST is not answered" (over-http (http-post (at "/about.html") (text-body "x")) "")
                     "405 text/plain; charset=utf-8 +"))
         #:finally (stop-server! server)))))
 
