@@ -11,7 +11,7 @@
 # manager, about half the size of the regular one, and running as the app user
 # (uid 1654). It has no ICU, so .NET runs with invariant globalization; the
 # pages it serves are the same as with the regular image.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled
 
 # What `bjo publish` made: the program and everything it loads.
 COPY app/ /app/
