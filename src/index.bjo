@@ -202,11 +202,11 @@
 (: folder-entries (-> string (Vec MenuEntry)) #:sync)
 (defun (folder-entries dir)
   (vec-append
-   (loop (:for sub (vec-map path->string/lossy (directory-subdirectories dir)))
+   (loop (:for sub (vec-map path->string/lossy (raise-err (directory-subdirectories dir))))
          (:let name (name-of-path sub))
          (:when (not (hidden-name? name)))
          (:acc (vecing (folder-entry sub name))))
-   (loop (:for file (vec-map path->string/lossy (directory-files dir)))
+   (loop (:for file (vec-map path->string/lossy (raise-err (directory-files dir))))
          (:let name (name-of-path file))
          (:when (not (or (hidden-name? name) (= name "index.sz") (= name "index.html")
                          (shadowed? dir name))))

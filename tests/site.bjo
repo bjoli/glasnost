@@ -41,10 +41,10 @@
 
 (: copy-tree! (-> string string void))
 (defun (copy-tree! from to)
-  (directory-create to)
-  (loop (:for f (vec-map path->string/lossy (directory-files from)))
+  (raise-err (directory-create to))
+  (loop (:for f (vec-map path->string/lossy (raise-err (directory-files from))))
         (:do (copy-file! f (path-combine to (name-in-folder f)) #t)))
-  (loop (:for d (vec-map path->string/lossy (directory-subdirectories from)))
+  (loop (:for d (vec-map path->string/lossy (raise-err (directory-subdirectories from))))
         (:do (copy-tree! d (path-combine to (name-in-folder d))))))
 
 (: work string)
@@ -91,13 +91,13 @@
     (None #f)))
 
 (: rewrite! (-> string string void))
-(defun (rewrite! rel text) (file-write-text (path-combine root rel) text))
+(defun (rewrite! rel text) (raise-err (file-write-text (path-combine root rel) text)))
 
 ;; Everything here reads and writes files, and parks the thread it is on while
 ;; it does; `main` runs it on a thread of its own.
 (: check-site (-> int) #:sync)
 (defun (check-site)
-  (when (directory-exists? work) (directory-delete-tree work))
+  (when (directory-exists? work) (raise-err (directory-delete-tree work)))
   (copy-tree! (path-absolute "tests/site") root)
   (def site (make-site root #:cache (path-combine work "pages")))
   (def at (fun (path) (shown site (resolve site path))))
@@ -191,9 +191,9 @@
   (expect-true "a date that cannot be read is shown as it is"
                (string-contains? dated "<span class=\"date\">someday</span>"))
   (expect-true "a folder's date in its line" (string-contains? dated "<span class=\"date\">2019-01-01</span>"))
-  (directory-create (path-combine root "weird"))
+  (raise-err (directory-create (path-combine root "weird")))
   ;; (listing? #f): the index.sz is the whole page.
-  (directory-create (path-combine root "quiet"))
+  (raise-err (directory-create (path-combine root "quiet")))
   (rewrite! "quiet/index.sz" "(meta (title \"Quiet\") (listing? #f))\n\nJust this.")
   (rewrite! "quiet/hidden-in-plain-sight.sz" "(meta (title \"Not listed\"))\n\nHere.")
   (def quiet (html-at site "/quiet/"))
@@ -216,7 +216,7 @@
 
   ;; (folders mixed): a folder sorts among the pages. (folder-marker? #f):
   ;; no slash after it.
-  (directory-create (path-combine root "mixed" "b"))
+  (raise-err (directory-create (path-combine root "mixed" "b")))
   (rewrite! "mixed/index.sz" "(meta (sort title) (folders mixed))")
   (rewrite! "mixed/a.sz" "(meta (title \"Alpha\"))\n\nA.")
   (rewrite! "mixed/b/index.sz" "(meta (title \"Beta\"))")
@@ -242,7 +242,7 @@
                (string-contains? (html-at site "/mixed/") "(folder-marker? ...) is #t or #f"))
 
   ;; (show-title? #f): no title in the header, but in the browser's title.
-  (directory-create (path-combine root "untitled"))
+  (raise-err (directory-create (path-combine root "untitled")))
   (rewrite! "untitled/page.sz" "(meta (title \"Quietly named\") (date \"2026-03-01\") (show-title? #f))\n\nThe text.")
   (def untitled (html-at site "/untitled/page.html"))
   (expect "(show-title? #f) leaves out the heading" (string-contains? untitled "<h1>") #f)
@@ -265,7 +265,7 @@
   (def kept (kept-at site "/about.html"))
   (expect-true "a page is kept" (file-exists? kept))
   (expect-true "with what it was made from"
-               (string-contains? (file-read-text (str kept ".sources")) (path-combine root "about.sz")))
+               (string-contains? (raise-err (file-read-text (str kept ".sources"))) (path-combine root "about.sz")))
   (def first-made (.-Ticks (written-utc kept)))
   (ignore (html-at site "/about.html"))
   (expect "and not made again while nothing has changed" (.-Ticks (written-utc kept)) first-made)
@@ -278,9 +278,9 @@
   (expect-true "a menu shows a new title" (string-contains? (html-at site "/") ">About, again<"))
   (rewrite! "posts/d.sz" "(meta (title \"Delta\"))")
   (expect-true "a menu lists a new page" (string-contains? (html-at site "/posts/") ">Delta<"))
-  (file-delete (path-combine root "posts" "b.sz"))
+  (raise-err (file-delete (path-combine root "posts" "b.sz")))
   (expect-true "and not one that is gone" (not (string-contains? (html-at site "/posts/") ">Beta<")))
-  (file-delete (path-combine root "_resources" "glasnost.css"))
+  (raise-err (file-delete (path-combine root "_resources" "glasnost.css")))
   (expect-true "a page without the style sheet once it is gone"
                (not (string-contains? (html-at site "/about.html") "glasnost.css")))
   (rewrite! "_resources/glasnost.css" "body { }")
@@ -289,8 +289,8 @@
 
   ;; --- old caches ---------------------------------------------------------
   (def caches (path-combine work "pages"))
-  (directory-create (path-combine caches "0123456789ab"))
-  (directory-create (path-combine caches "not-a-cache"))
+  (raise-err (directory-create (path-combine caches "0123456789ab")))
+  (raise-err (directory-create (path-combine caches "not-a-cache")))
   (expect "old caches are removed" (vec-map (fun (d) (relative-to caches d)) (clear-old-caches! site))
           ["0123456789ab"])
   (expect-true "a folder that is not one is left" (directory-exists? (path-combine caches "not-a-cache")))

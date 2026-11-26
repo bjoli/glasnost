@@ -112,11 +112,11 @@
   (def mine (record-ref site cache))
   (def caches (parent-of mine))
   (def old (if (directory-exists? caches)
-               (loop (:for dir (vec-map path->string/lossy (directory-subdirectories caches)))
+               (loop (:for dir (vec-map path->string/lossy (raise-err (directory-subdirectories caches))))
                      (:when (and (not (= dir mine)) (fingerprint-name? (name-in-folder dir))))
                      (:acc (vecing dir)))
                (vec-empty)))
-  (vec-for-each directory-delete-tree old)
+  (vec-for-each (fun (d) (raise-err (directory-delete-tree d))) old)
   old)
 
 ;; ---------------------------------------------------------------------------
@@ -269,7 +269,7 @@
          (all? (fun (source)
                  (and (or (file-exists? source) (directory-exists? source))
                       (<= (compare-times (last-written source) made) 0)))
-               (path-lines (file-read-text listed))))))
+               (path-lines (raise-err (file-read-text listed)))))))
 
 (: path-lines (-> string (Vec string)))
 (defun (path-lines text)
@@ -280,13 +280,13 @@
 (: write-whole! (-> string string DateTime void))
 (defun (write-whole! path text time)
   (def temporary (str path "." (.ToString (new-guid)) ".tmp"))
-  (file-write-text temporary text)
+  (raise-err (file-write-text temporary text))
   (set-written-utc! temporary time)
   (move-file! temporary path #t))
 
 (: store! (-> string string (Vec string) DateTime void))
 (defun (store! kept html sources started)
-  (directory-create (parent-of kept))
+  (raise-err (directory-create (parent-of kept)))
   (write-whole! (sources-file kept) (string-join sources "\n") started)
   (write-whole! kept html started))
 
@@ -333,7 +333,7 @@
 (: target-html (-> Site Target (Result string string)) #:sync)
 (defun (target-html site target)
   (match (target-file site target)
-    ((Ok kept) (Ok (file-read-text kept)))
+    ((Ok kept) (Ok (raise-err (file-read-text kept))))
     ((Err why) (Err why))))
 
 ;; ---------------------------------------------------------------------------
